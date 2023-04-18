@@ -1,0 +1,96 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="源文件\入库Json构造类">
+      <UniqueIdentifier>{b96f60c1-7e24-4602-b62d-f6a55140c3ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Http服务类">
+      <UniqueIdentifier>{86c088e5-8265-4705-92e8-24067775a74f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Http请求类">
+      <UniqueIdentifier>{92832af0-9dc6-4159-85a1-594dc35f4844}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\数据库连接">
+      <UniqueIdentifier>{80038381-218c-4ca4-b271-9ce2665218ac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Rabbitmq">
+      <UniqueIdentifier>{6690c4c4-c1be-4583-b0f3-ad79a4c1a868}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="digitalEntityJson.cpp">
+      <Filter>源文件\入库Json构造类</Filter>
+    </ClCompile>
+    <ClCompile Include="httpkit.cpp">
+      <Filter>源文件\Http请求类</Filter>
+    </ClCompile>
+    <ClCompile Include="httpConcurrencyServer.cpp">
+      <Filter>源文件\Http服务类</Filter>
+    </ClCompile>
+    <ClCompile Include="json.cpp">
+      <Filter>源文件\Http服务类</Filter>
+    </ClCompile>
+    <ClCompile Include="digitalmysql.cpp">
+      <Filter>源文件\数据库连接</Filter>
+    </ClCompile>
+    <ClCompile Include="logger.cpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="public.cpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="mmRabbitmq.cpp">
+      <Filter>源文件\Rabbitmq</Filter>
+    </ClCompile>
+    <ClCompile Include="shareMemory.cpp">
+      <Filter>源文件\Rabbitmq</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="digitalEntityJson.h">
+      <Filter>源文件\入库Json构造类</Filter>
+    </ClInclude>
+    <ClInclude Include="httpkit.h">
+      <Filter>源文件\Http请求类</Filter>
+    </ClInclude>
+    <ClInclude Include="httpConcurrencyServer.h">
+      <Filter>源文件\Http服务类</Filter>
+    </ClInclude>
+    <ClInclude Include="json.h">
+      <Filter>源文件\Http服务类</Filter>
+    </ClInclude>
+    <ClInclude Include="public.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="loghelp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="digitalmysql.h">
+      <Filter>源文件\数据库连接</Filter>
+    </ClInclude>
+    <ClInclude Include="logger.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="mmRabbitmq.h">
+      <Filter>源文件\Rabbitmq</Filter>
+    </ClInclude>
+    <ClInclude Include="shareMemory.h">
+      <Filter>源文件\Rabbitmq</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
