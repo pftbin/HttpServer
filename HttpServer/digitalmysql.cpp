@@ -12,6 +12,8 @@ std::string g_database_db = "netdb";
 
 #define BUFF_SZ 1024*16  //system max stack size
 
+//custom loger
+static FileWriter loger_mysql("mysql.log");
 
 namespace digitalmysql
 {
@@ -118,13 +120,13 @@ namespace digitalmysql
 			snprintf(sql_buff, BUFF_SZ, "insert into %s (id) value(%d)", strsequencename.c_str(), sequence);// insert
 			if (!mysql_query(pmysql, sql_buff))	//success return 0,failed return random number
 			{
-				_debug_to(0,("[newgetsequencenextvalue], insert sqt success, sequence=%d\n"), sequence);
+				_debug_to(loger_mysql, 0, ("[newgetsequencenextvalue], insert sqt success, sequence=%d\n"), sequence);
 			}
 			else
 			{
 				ret = false;
 				std::string error = mysql_error(pmysql);
-				_debug_to(0,("[newgetsequencenextvalue], insert sqt failed: %s\n"), error.c_str());
+				_debug_to(loger_mysql, 0, ("[newgetsequencenextvalue], insert sqt failed: %s\n"), error.c_str());
 			}
 			mysql_free_result(result);				//free result
 		}
@@ -132,7 +134,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(pmysql);
-			_debug_to(0,("[newgetsequencenextvalue], select failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[newgetsequencenextvalue], select failed: %s\n"), error.c_str());
 		}
 
 		if (!ret) return 0;
@@ -152,7 +154,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[gethumanlistinfo]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[gethumanlistinfo]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
@@ -205,13 +207,13 @@ namespace digitalmysql
 			}	
 			mysql_free_result(result);				//free result
 
-			_debug_to(0,("[gethumanlistinfo]MySQL select success,ncount=%d\n"),ncount);
+			_debug_to(loger_mysql, 0, ("[gethumanlistinfo]MySQL select success,ncount=%d\n"),ncount);
 		}
 		else
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[gethumanlistinfo]MySQL select failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[gethumanlistinfo]MySQL select failed: %s\n"), error.c_str());
 		}
 		//=====================
 		mysql_close(&mysql);	//close connect
@@ -235,7 +237,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[addmergetask]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[addmergetask]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		std::string taskname_utf8 = "test taskname";
@@ -282,13 +284,13 @@ namespace digitalmysql
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
 		{
-			_debug_to(0,("[addmergetask]task %d, %s success\n"), taskid, OPERATION.c_str());
+			_debug_to(loger_mysql, 0, ("[addmergetask]task %d, %s success\n"), taskid, OPERATION.c_str());
 		}
 		else 
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[addmergetask]task %d, %s failed: %s\n"), taskid, OPERATION.c_str(), error.c_str());
+			_debug_to(loger_mysql, 0, ("[addmergetask]task %d, %s failed: %s\n"), taskid, OPERATION.c_str(), error.c_str());
 		}
 		//=====================
 		mysql_close(&mysql);	//close connect
@@ -308,7 +310,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[gettaskinfo]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[gettaskinfo]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
@@ -366,7 +368,7 @@ namespace digitalmysql
 			else
 			{
 				ret = false;
-				_debug_to(0,("[gettaskinfo] select task count not only one\n"));
+				_debug_to(loger_mysql, 0, ("[gettaskinfo] select task count not only one\n"));
 			}
 			mysql_free_result(result);				//free result
 		}
@@ -374,7 +376,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[gettaskinfo]MySQL select failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[gettaskinfo]MySQL select failed: %s\n"), error.c_str());
 		}
 		//=====================
 		mysql_close(&mysql);	//close connect
@@ -395,7 +397,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[gettaskhistoryinfo]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[gettaskhistoryinfo]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
@@ -403,12 +405,12 @@ namespace digitalmysql
 		if (humanid.empty())
 		{
 			snprintf(sql_buff, BUFF_SZ, "select taskid,tasktype,taskname,state,progress,createtime,humanid,ssmltext,audiofile,audioformat,audiolength,videofile,finalvideo,videoformat,videolength,videowidth,videoheight,videofps from sbt_doctask ORDER BY %s %s", orderkey.c_str(), orderway.c_str());//select
-			_debug_to(0,("[gettaskhistoryinfo]select all humaninfo\n"));
+			_debug_to(loger_mysql, 0, ("[gettaskhistoryinfo]select all humaninfo\n"));
 		}
 		else
 		{
 			snprintf(sql_buff, BUFF_SZ, "select taskid,tasktype,taskname,state,progress,createtime,humanid,ssmltext,audiofile,audioformat,audiolength,videofile,finalvideo,videoformat,videolength,videowidth,videoheight,videofps from sbt_doctask where humanid='%s' ORDER BY %s %s", humanid.c_str(), orderkey.c_str(), orderway.c_str());//select
-			_debug_to(0,("[gettaskhistoryinfo]select one humaninfo\n"));
+			_debug_to(loger_mysql, 0, ("[gettaskhistoryinfo]select one humaninfo\n"));
 		}
 
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
@@ -469,13 +471,13 @@ namespace digitalmysql
 			}
 			mysql_free_result(result);				//free result
 
-			_debug_to(0,("[gettaskhistoryinfo]MySQL select success,ncount=%d\n"), ncount);
+			_debug_to(loger_mysql, 0, ("[gettaskhistoryinfo]MySQL select success,ncount=%d\n"), ncount);
 		}
 		else
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[gettaskhistoryinfo]MySQL select failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[gettaskhistoryinfo]MySQL select failed: %s\n"), error.c_str());
 		}
 		//=====================
 		mysql_close(&mysql);	//close connect
@@ -496,7 +498,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[setfinalvideopath]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[setfinalvideopath]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		//
@@ -506,13 +508,13 @@ namespace digitalmysql
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
 		{
-			_debug_to(0,("[setfinalvideopath]task %d, update finalvideo success\n"), taskid);
+			_debug_to(loger_mysql, 0, ("[setfinalvideopath]task %d, update finalvideo success\n"), taskid);
 		}
 		else
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[setfinalvideopath]task %d, update finalvideo failed: %s\n"), taskid, error.c_str());
+			_debug_to(loger_mysql, 0, ("[setfinalvideopath]task %d, update finalvideo failed: %s\n"), taskid, error.c_str());
 		}
 		//=====================
 		mysql_close(&mysql);	//close connect
@@ -534,7 +536,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[isexisttask]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[isexisttask]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
@@ -572,7 +574,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[isexisttask]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[isexisttask]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
@@ -587,7 +589,7 @@ namespace digitalmysql
 			result = mysql_store_result(&mysql);    //sava dada to result
 			int rownum = mysql_num_rows(result);	//get row number
 			int colnum = mysql_num_fields(result);  //get col number
-			_debug_to(0,("[isexisttask]sql=%s, row=%d, col=%d\n"), sql_buff, rownum, colnum);
+			_debug_to(loger_mysql, 0, ("[isexisttask]sql=%s, row=%d, col=%d\n"), sql_buff, rownum, colnum);
 			if (rownum >= 1 && colnum >= 3)//keep right
 			{
 				int i = 0;
@@ -605,7 +607,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[isexisttask]MySQL select failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[isexisttask]MySQL select failed: %s\n"), error.c_str());
 		}
 
 		//update taskname
@@ -618,13 +620,13 @@ namespace digitalmysql
 			mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 			if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
 			{
-				_debug_to(0,("[isexisttask]task %d, update taskname success\n"), taskid);
+				_debug_to(loger_mysql, 0, ("[isexisttask]task %d, update taskname success\n"), taskid);
 			}
 			else
 			{
 				ret = false;
 				std::string error = mysql_error(&mysql);
-				_debug_to(0,("[isexisttask]task %d, update taskname failed: %s\n"), taskid, error.c_str());
+				_debug_to(loger_mysql, 0, ("[isexisttask]task %d, update taskname failed: %s\n"), taskid, error.c_str());
 			}
 		}
 
@@ -647,7 +649,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql); errmsg = error;
-			_debug_to(0,("[isexisttask]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[isexisttask]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
@@ -656,12 +658,12 @@ namespace digitalmysql
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
 		{
-			_debug_to(0,("[deletetask_taskid]delete task by taskid success, taskid=%d\n"), taskid);
+			_debug_to(loger_mysql, 0, ("[deletetask_taskid]delete task by taskid success, taskid=%d\n"), taskid);
 			errmsg = "delete task by taskid success";
 		}
 		else
 		{
-			_debug_to(0,("[deletetask_taskid]delete task by taskid failed, taskid=%d\n"), taskid);
+			_debug_to(loger_mysql, 0, ("[deletetask_taskid]delete task by taskid failed, taskid=%d\n"), taskid);
 			std::string error = mysql_error(&mysql); errmsg = error;
 		}
 
@@ -685,7 +687,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[getmergeprogress]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[getmergeprogress]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
@@ -707,17 +709,17 @@ namespace digitalmysql
 			else
 			{
 				ret = false;
-				_debug_to(0,("[getmergeprogress]task %d, select mergetask count not only one\n"), taskid);
+				_debug_to(loger_mysql, 0, ("[getmergeprogress]task %d, select mergetask count not only one\n"), taskid);
 			}
 			mysql_free_result(result);				//free result
 
-			_debug_to(0,("[getmergeprogress]task %d, select mergetask progress success, progress=%d\n"), taskid, nprogress);
+			_debug_to(loger_mysql, 0, ("[getmergeprogress]task %d, select mergetask progress success, progress=%d\n"), taskid, nprogress);
 		}
 		else 
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[getmergeprogress]task %d, select progress failed: %s\n"), taskid, error.c_str());
+			_debug_to(loger_mysql, 0, ("[getmergeprogress]task %d, select progress failed: %s\n"), taskid, error.c_str());
 		}
 		
 		//=====================
@@ -739,7 +741,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[setmergeprogress]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[setmergeprogress]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
@@ -756,13 +758,13 @@ namespace digitalmysql
 			mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 			if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
 			{
-				_debug_to(0,("[setmergeprogress]task %d, update progress success, progress=%d\n"), taskid, nprogress);
+				_debug_to(loger_mysql, 0, ("[setmergeprogress]task %d, update progress success, progress=%d\n"), taskid, nprogress);
 			}
 			else
 			{
 				ret = false;
 				std::string error = mysql_error(&mysql);
-				_debug_to(0,("[setmergeprogress]task %d, update progress failed: %s\n"), taskid, error.c_str());
+				_debug_to(loger_mysql, 0, ("[setmergeprogress]task %d, update progress failed: %s\n"), taskid, error.c_str());
 			}
 			mysql_free_result(result);					//free result
 		}
@@ -770,7 +772,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[setmergeprogress]task %d, select progress failed: %s\n"), taskid, error.c_str());
+			_debug_to(loger_mysql, 0, ("[setmergeprogress]task %d, select progress failed: %s\n"), taskid, error.c_str());
 		}
 
 		//=====================
@@ -793,7 +795,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[getmergestate]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[getmergestate]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
@@ -814,13 +816,13 @@ namespace digitalmysql
 			}
 			mysql_free_result(result);				//free result
 
-			_debug_to(0,("[getmergestate]task %d, select mergetask state success, state=%d\n"), taskid, nstate);
+			_debug_to(loger_mysql, 0, ("[getmergestate]task %d, select mergetask state success, state=%d\n"), taskid, nstate);
 		}
 		else
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[getmergestate]task %d, select state failed: %s\n"), taskid, error.c_str());
+			_debug_to(loger_mysql, 0, ("[getmergestate]task %d, select state failed: %s\n"), taskid, error.c_str());
 		}
 
 		//=====================
@@ -842,7 +844,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[setmergestate]MySQL database connect failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 0, ("[setmergestate]MySQL database connect failed: %s\n"), error.c_str());
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
@@ -859,13 +861,13 @@ namespace digitalmysql
 			mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 			if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
 			{
-				_debug_to(0,("[setmergestate]task %d, update state success, state=%d\n"), taskid, nstate);
+				_debug_to(loger_mysql, 0, ("[setmergestate]task %d, update state success, state=%d\n"), taskid, nstate);
 			}
 			else
 			{
 				ret = false;
 				std::string error = mysql_error(&mysql);
-				_debug_to(0,("[setmergestate]task %d, update state failed: %s\n"), taskid, error.c_str());
+				_debug_to(loger_mysql, 0, ("[setmergestate]task %d, update state failed: %s\n"), taskid, error.c_str());
 			}
 			mysql_free_result(result);					//free result
 		}
@@ -873,7 +875,7 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(0,("[setmergestate]task %d, select state failed: %s\n"), taskid, error.c_str());
+			_debug_to(loger_mysql, 0, ("[setmergestate]task %d, select state failed: %s\n"), taskid, error.c_str());
 		}
 
 		//=====================

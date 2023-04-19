@@ -170,10 +170,10 @@ std::string getjson_humanlistinfo(std::string contentid = "", int history = 0)
 			if (json_obj.HasKey("userCode") && json_obj.HasKey("userToken"))
 			{
 				userCode = json_obj["userCode"].ToString();
-				_debug_to(0,("userCode: %s\n"), userCode.c_str());
+				_debug_to( 0, ("userCode: %s\n"), userCode.c_str());
 
 				userToken = json_obj["userToken"].ToString();
-				_debug_to(0,("userToken: %s\n"), userToken.c_str());
+				_debug_to( 0, ("userToken: %s\n"), userToken.c_str());
 			}
 			else
 			{
@@ -181,7 +181,7 @@ std::string getjson_humanlistinfo(std::string contentid = "", int history = 0)
 				std::string input = ((char*)outBodyData_gettoken.pBuff);
 				std::string errormsg;
 				utf8_to_ansi(input.c_str(), input.length(), errormsg);
-				_debug_to(0,("errormsg: %s\n"), errormsg.c_str());
+				_debug_to( 0, ("errormsg: %s\n"), errormsg.c_str());
 
 				//ret
 				result = false;
@@ -591,10 +591,10 @@ void* pthread_patchdata(void* arg)
 					if (json_obj.HasKey("userCode") && json_obj.HasKey("userToken"))
 					{
 						userCode = json_obj["userCode"].ToString();
-						_debug_to(0,("userCode: %s\n"), userCode.c_str());
+						_debug_to( 0, ("userCode: %s\n"), userCode.c_str());
 
 						userToken = json_obj["userToken"].ToString();
-						_debug_to(0,("userToken: %s\n"), userToken.c_str());
+						_debug_to( 0, ("userToken: %s\n"), userToken.c_str());
 					}
 					else
 					{
@@ -602,7 +602,7 @@ void* pthread_patchdata(void* arg)
 						std::string result = ((char*)outBodyData_gettoken.pBuff);
 						std::string errormsg;
 						utf8_to_ansi(result.c_str(), result.length(), errormsg);
-						_debug_to(0,("errormsg: %s\n"), errormsg.c_str());
+						_debug_to( 0, ("errormsg: %s\n"), errormsg.c_str());
 
 						//ret
 						bContinueRun = false;
@@ -654,20 +654,20 @@ void* pthread_patchdata(void* arg)
 					if (json_obj.HasKey("status") && json_obj.HasKey("message"))
 					{
 						nstatus = json_obj["status"].ToInt();
-						_debug_to(0,("status: %d\n"), nstatus);
+						_debug_to( 0, ("status: %d\n"), nstatus);
 						if (nstatus == 200)
 						{
 							contentId_patch = json_obj["contentId"].ToString();
-							_debug_to(0,("contentId: %s\n"), contentId_patch.c_str());
+							_debug_to( 0, ("contentId: %s\n"), contentId_patch.c_str());
 
-							_debug_to(0,("TaskID: %d, patch data success\n"), FindTask.taskid);
+							_debug_to( 0, ("TaskID: %d, patch data success\n"), FindTask.taskid);
 						}
 						else
 						{
 							std::string errmsg = json_obj["message"].ToString();
 							std::string ret_message;
 							utf8_to_ansi(errmsg.c_str(), errmsg.length(), ret_message);
-							_debug_to(0,("message: %s\n"), ret_message.c_str());
+							_debug_to( 0, ("message: %s\n"), ret_message.c_str());
 						}
 					}
 					else
@@ -676,7 +676,7 @@ void* pthread_patchdata(void* arg)
 						std::string input = ((char*)outBodyData_patchdata.pBuff);
 						std::string errormsg;
 						utf8_to_ansi(input.c_str(), input.length(), errormsg);
-						_debug_to(0,("message: %s\n"), errormsg.c_str());
+						_debug_to( 0, ("message: %s\n"), errormsg.c_str());
 
 						//ret
 						bContinueRun = false;
@@ -691,7 +691,7 @@ void* pthread_patchdata(void* arg)
 		//pthread_exit(nullptr);//中途退出当前线程
 	}
 
-	_debug_to(0,("pthread_patchdata exit...\n"));
+	_debug_to( 0, ("pthread_patchdata exit...\n"));
 	return nullptr;
 }
 
@@ -791,10 +791,10 @@ void* pthread_getdata(void* arg)
 					if (json_obj.HasKey("userCode") && json_obj.HasKey("userToken"))
 					{
 						userCode = json_obj["userCode"].ToString();
-						_debug_to(0,("userCode: %s\n"), userCode.c_str());
+						_debug_to( 0, ("userCode: %s\n"), userCode.c_str());
 
 						userToken = json_obj["userToken"].ToString();
-						_debug_to(0,("userToken: %s\n"), userToken.c_str());
+						_debug_to( 0, ("userToken: %s\n"), userToken.c_str());
 					}
 					else
 					{
@@ -802,7 +802,7 @@ void* pthread_getdata(void* arg)
 						std::string input = ((char*)outBodyData_gettoken.pBuff);
 						std::string errormsg;
 						utf8_to_ansi(input.c_str(), input.length(), errormsg);
-						_debug_to(0,("errormsg: %s\n"), errormsg.c_str());
+						_debug_to( 0, ("errormsg: %s\n"), errormsg.c_str());
 
 						//ret
 						bContinueRun = false;
@@ -847,7 +847,7 @@ void* pthread_getdata(void* arg)
 					json::Object json_obj = json_data.ToObject();
 					if (json_obj.HasKey("version_"))
 					{
-						_debug_to(0,("TaskID: %d, get data success\n"), FindTask.taskid);
+						_debug_to( 0, ("TaskID: %d, get data success\n"), FindTask.taskid);
 
 						//mydebug
 						std::string input_patch_data_ansi, input_patch_data_utf8;
@@ -861,7 +861,7 @@ void* pthread_getdata(void* arg)
 						std::string input = ((char*)outBodyData_getdata.pBuff);
 						std::string errormsg;
 						utf8_to_ansi(input.c_str(), input.length(), errormsg);
-						_debug_to(0,("errormsg: %s\n"), errormsg.c_str());
+						_debug_to( 0, ("errormsg: %s\n"), errormsg.c_str());
 
 						//ret
 						bContinueRun = false;
@@ -876,7 +876,7 @@ void* pthread_getdata(void* arg)
 		//pthread_exit(nullptr);//中途退出当前线程
 	}
 
-	_debug_to(0,("pthread_getdata exit...\n"));
+	_debug_to( 0, ("pthread_getdata exit...\n"));
 	return nullptr;
 }
 #endif
@@ -916,7 +916,7 @@ bool getconfig_actornode(std::string configfilepath)
 		value = getnodevalue(config, "actor_count");
 		if (value.empty()) return false;
 		int count = atoi(value.c_str());
-		_debug_to(0,("CONFIG_actornode count = %d\n"), count);
+		_debug_to( 0, ("CONFIG_actornode count = %d\n"), count);
 
 		Container_actornode.clear();
 		for (int i = 0; i < count; i++)
@@ -930,13 +930,13 @@ bool getconfig_actornode(std::string configfilepath)
 			value = getnodevalue(config, actor_ip);
 			if (value.empty()) continue;
 			ip = value;
-			_debug_to(0,("CONFIG_actornode actor%d_ip = %s\n"), i, ip.c_str());
+			_debug_to( 0, ("CONFIG_actornode actor%d_ip = %s\n"), i, ip.c_str());
 
 			std::string actor_port = actor_pro + "port";
 			value = getnodevalue(config, actor_port);
 			if (value.empty()) continue;
 			port = atoi(value.c_str());
-			_debug_to(0,("CONFIG_actornode actor%d_port = %d\n"), i, port);
+			_debug_to( 0, ("CONFIG_actornode actor%d_port = %d\n"), i, port);
 
 			actornode actornodeitem;
 			actornodeitem.ip = ip;
@@ -977,12 +977,12 @@ bool getconfig_playnode(std::string configfilepath)
 		value = getnodevalue(config, "playnode_ip");
 		if (value.empty()) return false;
 		playnode_ip = value;
-		_debug_to(0,("CONFIG_playnode_ip = %s\n"), playnode_ip.c_str());
+		_debug_to( 0, ("CONFIG_playnode_ip = %s\n"), playnode_ip.c_str());
 
 		value = getnodevalue(config, "playnode_port");
 		if (value.empty()) return false;
 		playnode_port = atoi(value.c_str());
-		_debug_to(0,("CONFIG_playnode_port = %d\n"), playnode_port);
+		_debug_to( 0, ("CONFIG_playnode_port = %d\n"), playnode_port);
 
 		return true;
 	}
@@ -1017,12 +1017,12 @@ bool getconfig_digitvideopath(std::string configfilepath)
 		value = getnodevalue(config, "digitvideo_path1");
 		if (value.empty()) return false;
 		digitvideo_path1 = value;
-		_debug_to(0,("CONFIG_digitvideo_path1 = %s\n"), digitvideo_path1.c_str());
+		_debug_to( 0, ("CONFIG_digitvideo_path1 = %s\n"), digitvideo_path1.c_str());
 
 		value = getnodevalue(config, "digitvideo_path2");
 		if (value.empty()) return false;
 		digitvideo_path2 = value;
-		_debug_to(0,("CONFIG_digitvideo_path2 = %s\n"), digitvideo_path2.c_str());
+		_debug_to( 0, ("CONFIG_digitvideo_path2 = %s\n"), digitvideo_path2.c_str());
 
 		return true;
 	}
@@ -1056,11 +1056,11 @@ bool getconfig_global(std::string configfilepath)
 
 		value = getnodevalue(config, "delay_beforetext");
 		delay_beforetext = atoi(value.c_str());
-		_debug_to(0,("CONFIG_delay_beforetext = %d\n"), delay_beforetext);
+		_debug_to( 0, ("CONFIG_delay_beforetext = %d\n"), delay_beforetext);
 
 		value = getnodevalue(config, "delay_aftertext");
 		delay_aftertext = atoi(value.c_str());
-		_debug_to(0,("CONFIG_delay_aftertext = %d\n"), delay_aftertext);
+		_debug_to( 0, ("CONFIG_delay_aftertext = %d\n"), delay_aftertext);
 
 		return true;
 	}
@@ -1158,7 +1158,7 @@ bool SendTcpMsg_DGHDR(std::string ip, short port, std::string sendmsg, bool brec
 		serveraddr.sin_addr.s_addr = inet_addr(ip.c_str());
 		if (connect(sfd, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1)
 		{
-			_debug_to(0,("addr: %s:%u ,connect failed\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port));
+			_debug_to( 0, ("addr: %s:%u ,connect failed\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port));
 			bRet = false;
 		}
 	}
@@ -1185,12 +1185,12 @@ bool SendTcpMsg_DGHDR(std::string ip, short port, std::string sendmsg, bool brec
 		int ret = send(sfd, pbuffer, bufferlen, 0);
 		if (ret <= 0)
 		{
-			_debug_to(0,("addr: %s:%u ,send failed: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
+			_debug_to( 0, ("addr: %s:%u ,send failed: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
 			bRet = false;
 		}
 		else
 		{
-			_debug_to(0,("addr: %s:%u ,send success: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
+			_debug_to( 0, ("addr: %s:%u ,send success: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
 		}
 	}
 
@@ -1264,7 +1264,7 @@ bool SendTcpMsg_PNPHDR(std::string ip, short port, std::string sendmsg, bool bre
 		serveraddr.sin_addr.s_addr = inet_addr(ip.c_str());
 		if (connect(sfd, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1)
 		{
-			_debug_to(0,("addr: %s:%u ,connect failed\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port));
+			_debug_to( 0, ("addr: %s:%u ,connect failed\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port));
 			bRet = false;
 		}
 	}
@@ -1296,12 +1296,12 @@ bool SendTcpMsg_PNPHDR(std::string ip, short port, std::string sendmsg, bool bre
 		int ret = send(sfd, pbuffer, bufferlen, 0);
 		if (ret <= 0)
 		{
-			_debug_to(0,("addr: %s:%u ,send failed: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
+			_debug_to( 0, ("addr: %s:%u ,send failed: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
 			bRet = false;
 		}
 		else
 		{
-			_debug_to(0,("addr: %s:%u ,send success: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
+			_debug_to( 0, ("addr: %s:%u ,send success: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
 		}
 	}
 
@@ -1369,7 +1369,7 @@ std::string getjson_humanlistinfo(std::string humanid = "", int history = 0)
 	//1-gethumanlist
 	digitalmysql::VEC_HUMANINFO vechumaninfo;
 	int human_cnt = digitalmysql::gethumanlistinfo(humanid, vechumaninfo);
-	_debug_to(0,("humaninfo size=%d\n"), human_cnt);
+	_debug_to( 0, ("humaninfo size=%d\n"), human_cnt);
 	if (human_cnt <= 0)
 	{
 		result = false;
@@ -1379,7 +1379,7 @@ std::string getjson_humanlistinfo(std::string humanid = "", int history = 0)
 	//2-parsedata
 	std::string list_info = "";
 	DigitalMan_Items result_object;
-	_debug_to(0,("humaninfo size=%d\n"), vechumaninfo.size());
+	_debug_to( 0, ("humaninfo size=%d\n"), vechumaninfo.size());
 	for(int i = 0; i < vechumaninfo.size(); i++)
 	{
 		DigitalMan_Item result_item;
@@ -1397,7 +1397,7 @@ std::string getjson_humanlistinfo(std::string humanid = "", int history = 0)
 		{
 			result = false;
 			errmsg = "not found keyframe, please keep file exist and not readonly";
-			_debug_to(0,("not found keyframe, please keep file exist and not readonly.\n filepath = [%s]\n"), filepath.c_str());
+			_debug_to( 0, ("not found keyframe, please keep file exist and not readonly.\n filepath = [%s]\n"), filepath.c_str());
 		}
 
 		result_item.VirtualmanKey = vechumaninfo[i].humanid;
@@ -1417,7 +1417,7 @@ std::string getjson_humanlistinfo(std::string humanid = "", int history = 0)
 		std::string orderkey = "createtime"; int aspect = 1;
 		digitalmysql::VEC_TASKINFO vectaskhistory;
 		int history_cnt = digitalmysql::gettaskhistoryinfo(humanid, orderkey, aspect, vectaskhistory);
-		_debug_to(0,("taskhistory size=%d\n"), history_cnt);
+		_debug_to( 0, ("taskhistory size=%d\n"), history_cnt);
 		for (int i = 0; i < vectaskhistory.size(); i++)
 		{
 			std::string final_video_path = vectaskhistory[i].video_path;//if playnode return error,use green background video
@@ -1431,7 +1431,7 @@ std::string getjson_humanlistinfo(std::string humanid = "", int history = 0)
 				vectaskhistory[i].video_format.c_str(), vectaskhistory[i].video_width, vectaskhistory[i].video_height, vectaskhistory[i].video_fps, final_video_path.c_str());
 			json_history = json_buff;
 
-			_debug_to(0,("history[%d], TaskID=%d, humanid=%s\n"), i, vectaskhistory[i].taskid, vectaskhistory[i].humanid.c_str());
+			_debug_to( 0, ("history[%d], TaskID=%d, humanid=%s\n"), i, vectaskhistory[i].taskid, vectaskhistory[i].humanid.c_str());
 
 			//add to every digitman object
 			for (int j = 0; j < result_object.vecDigitManItems.size(); j++)
@@ -1474,11 +1474,11 @@ std::string getjson_humanhistoryinfo(std::string humanid = "", std::string order
 
 	digitalmysql::VEC_HUMANINFO vechumaninfo;
 	int human_cnt = digitalmysql::gethumanlistinfo(humanid, vechumaninfo);
-	_debug_to(0,("humaninfo size=%d\n"), human_cnt);
+	_debug_to( 0, ("humaninfo size=%d\n"), human_cnt);
 
 	digitalmysql::VEC_TASKINFO vectaskhistory;
 	int history_cnt = digitalmysql::gettaskhistoryinfo(humanid, orderkey, aspect, vectaskhistory);
-	_debug_to(0,("taskhistory size=%d\n"), history_cnt);
+	_debug_to( 0, ("taskhistory size=%d\n"), history_cnt);
 
 	//
 	std::string history_info = "";
@@ -1528,7 +1528,7 @@ std::string getjson_humanhistoryinfo(std::string humanid = "", std::string order
 		}
 		else
 		{
-			_debug_to(0,("not found keyframe, please keep file exist and not readonly.\n filepath = [%s]\n"), filepath.c_str());
+			_debug_to( 0, ("not found keyframe, please keep file exist and not readonly.\n filepath = [%s]\n"), filepath.c_str());
 
 			//无任务关键帧则使用数字人关键帧
 			filepath = vechumaninfo[current_humanidx].keyframe;
@@ -1605,7 +1605,7 @@ std::string getjson_runtaskresult(int taskid)
 	long long dwS = gettimecount();
 	bool ret_waiting = waiting_videomerge(taskid);
 	long long dwE = gettimecount();
-	_debug_to(0,("++++++++++++++合成数字人时间: %d秒++++++++++++++\n"), dwE - dwS);
+	_debug_to( 0, ("++++++++++++++合成数字人时间: %d秒++++++++++++++\n"), dwE - dwS);
 
 	//continue add background
 	if (ret_waiting)
@@ -1636,11 +1636,11 @@ std::string getjson_runtaskresult(int taskid)
 
 					//send message
 					int recv_timeout = taskitem.audio_length/1000 + 60;//音频时长+60秒
-					_debug_to(0,("==recv_timeout==  %d\n"), recv_timeout);
+					_debug_to( 0, ("==recv_timeout==  %d\n"), recv_timeout);
 					bool result = SendTcpMsg_PNPHDR(playnode_ip, playnode_port, sendmsg, true, recvmsg, recv_timeout);
 					if (result)
 					{
-						_debug_to(0,("addr: %s:%u, send playnode message success, TaskID=%d, recv message: %s\n"), playnode_ip.c_str(), playnode_port, taskid, recvmsg.c_str());
+						_debug_to( 0, ("addr: %s:%u, send playnode message success, TaskID=%d, recv message: %s\n"), playnode_ip.c_str(), playnode_port, taskid, recvmsg.c_str());
 
 						bool recv_result = false;
 						std::string final_video_path = taskitem.video_path;//if playnode return error,use green background video
@@ -1659,7 +1659,7 @@ std::string getjson_runtaskresult(int taskid)
 										std::string msg_ansi;
 										std::string msg_utf8 = recv_obj["msg"].ToString();
 										utf8_to_ansi(msg_utf8.c_str(), msg_utf8.length(), msg_ansi);
-										_debug_to(0,("recv error: %s \n"), msg_ansi.c_str());
+										_debug_to( 0, ("recv error: %s \n"), msg_ansi.c_str());
 									}
 								}
 								else
@@ -1726,7 +1726,7 @@ std::string getjson_runtaskresult(int taskid)
 			result_str = getjson_error(1, errmsg);
 		}
 		long long dwE = gettimecount();
-		_debug_to(0,("++++++++++++++录制数字人时间: %d秒++++++++++++++\n"), dwE - dwS);
+		_debug_to( 0, ("++++++++++++++录制数字人时间: %d秒++++++++++++++\n"), dwE - dwS);
 	}
 	else
 	{
@@ -1778,33 +1778,33 @@ bool getconfig_rabbitmq(std::string configfilepath)
 		value = getnodevalue(config, "rabbitmq_ip");
 		if (value.empty()) return false;
 		rabbitmq_ip = value;
-		_debug_to(0,("CONFIG_rabbitmq_ip = %s\n"), rabbitmq_ip.c_str());
+		_debug_to( 0, ("CONFIG_rabbitmq_ip = %s\n"), rabbitmq_ip.c_str());
 
 		value = getnodevalue(config, "rabbitmq_port");
 		if (value.empty()) return false;
 		rabbitmq_port = atoi(value.c_str());
-		_debug_to(0,("CONFIG_rabbitmq_port = %d\n"), rabbitmq_port);
+		_debug_to( 0, ("CONFIG_rabbitmq_port = %d\n"), rabbitmq_port);
 
 		value = getnodevalue(config, "rabbitmq_user");
 		if (value.empty()) return false;
 		rabbitmq_user = value;
-		_debug_to(0,("CONFIG_rabbitmq_user = %s\n"), rabbitmq_user.c_str());
+		_debug_to( 0, ("CONFIG_rabbitmq_user = %s\n"), rabbitmq_user.c_str());
 
 		value = getnodevalue(config, "rabbitmq_passwd");
 		if (value.empty()) return false;
 		rabbitmq_passwd = value;
-		_debug_to(0,("CONFIG_rabbitmq_passwd = %s\n"), rabbitmq_passwd.c_str());
+		_debug_to( 0, ("CONFIG_rabbitmq_passwd = %s\n"), rabbitmq_passwd.c_str());
 
 		//
 		value = getnodevalue(config, "rabbitmq_exchange");
 		if (value.empty()) return false;
 		rabbitmq_exchange = value;
-		_debug_to(0,("CONFIG_rabbitmq_exchange = %s\n"), rabbitmq_exchange.c_str());
+		_debug_to( 0, ("CONFIG_rabbitmq_exchange = %s\n"), rabbitmq_exchange.c_str());
 
 		value = getnodevalue(config, "rabbitmq_routekey");
 		if (value.empty()) return false;
 		rabbitmq_routekey = value;
-		_debug_to(0,("CONFIG_rabbitmq_routekey = %s\n"), rabbitmq_routekey.c_str());
+		_debug_to( 0, ("CONFIG_rabbitmq_routekey = %s\n"), rabbitmq_routekey.c_str());
 		
 		return true;
 	}
@@ -1851,7 +1851,7 @@ bool sendRabbitmqMsg(std::string mqmessage)
 {
 	if (g_RabbitmqSender == nullptr)
 	{
-		_debug_to(0,("Rabbitmq object is null,please restart...\n"));
+		_debug_to( 0, ("Rabbitmq object is null,please restart...\n"));
 		return false;
 	}
 
@@ -1986,7 +1986,7 @@ void* pthread_updateactorinfo(void* arg)
             std::string recvmsg = "";
             if(SendTcpMsg_DGHDR(ip,port,msg,true,recvmsg))//查询Actor状态
             {
-				_debug_to(0,("addr: %s:%u ,send actor check message success,recv message: %s\n"), ip.c_str(), port, recvmsg.c_str());
+				_debug_to( 0, ("addr: %s:%u ,send actor check message success,recv message: %s\n"), ip.c_str(), port, recvmsg.c_str());
 				//
 				int nNewState = FindActor.state;
 				json::Value json_val = json::Deserialize((char*)recvmsg.c_str());
@@ -2010,7 +2010,7 @@ void* pthread_updateactorinfo(void* arg)
             }
             else
             {
-				_debug_to(0,("addr: %s:%u ,send actor check message failed: %s\n"), ip.c_str(), port, msg.c_str());
+				_debug_to( 0, ("addr: %s:%u ,send actor check message failed: %s\n"), ip.c_str(), port, msg.c_str());
             }
         }
 
@@ -2018,7 +2018,7 @@ void* pthread_updateactorinfo(void* arg)
 		//pthread_exit(nullptr);//中途退出当前线程
     }
 
-	_debug_to(0,("pthread_updateactorinfo exit...\n"));
+	_debug_to( 0, ("pthread_updateactorinfo exit...\n"));
     return nullptr;
 }
 
@@ -2085,17 +2085,17 @@ void* pthread_runtask_thread(void* arg)
 		bool bContinueRun = (bActor&&bTask);
 		if (bContinueRun)
 		{
-			_debug_to(0,("ASSIGN task run===================================================\n"));
+			_debug_to( 0, ("ASSIGN task run===================================================\n"));
 			std::string recvmsg;
 			std::string sendmsg = getNotifyMsg_ToActor(findtaskitem);
 			if (SendTcpMsg_DGHDR(ip, port, sendmsg, false, recvmsg))//向Actor发送任务
 			{
-				_debug_to(0,("addr: %s:%u ,send task success, TaskID=%d, text: %s\n"), ip.c_str(), port, taskid, tasktext.c_str());
+				_debug_to( 0, ("addr: %s:%u ,send task success, TaskID=%d, text: %s\n"), ip.c_str(), port, taskid, tasktext.c_str());
 				std::string result_str = getjson_runtaskresult(taskid);
 			}
 			else
 			{
-				_debug_to(0,("addr: %s:%u ,send task failed, TaskID=%d, text: %s\n"), ip.c_str(), port, taskid, tasktext.c_str());
+				_debug_to( 0, ("addr: %s:%u ,send task failed, TaskID=%d, text: %s\n"), ip.c_str(), port, taskid, tasktext.c_str());
 				digitalmysql::setmergestate(findtaskitem.taskid, 2);//任务状态为失败
 				digitalmysql::setmergeprogress(findtaskitem.taskid, 100);//合成进度为100
 			}
@@ -2112,14 +2112,14 @@ void* pthread_runtask_thread(void* arg)
 				sleep(1000);
 			}
 			std::string msgresult = (notifyresult) ? ("success") : ("failed");
-			_debug_to(0,("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
+			_debug_to( 0, ("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
 		}
 
 		sleep(1000);
 		//pthread_exit(nullptr);//中途退出当前线程
 	}
 
-	_debug_to(0,("pthread_checkactor exit...\n"));
+	_debug_to( 0, ("pthread_checkactor exit...\n"));
 	return nullptr;
 }
 
@@ -2149,12 +2149,12 @@ std::string getjson_runtask_now(mergetaskinfo taskitem)
 	std::string tasktext = taskitem.tasktext;
 	if (bActor)
 	{
-		_debug_to(0,("SYNC task run===================================================\n"));
+		_debug_to( 0, ("SYNC task run===================================================\n"));
 		std::string recvmsg;
 		std::string sendmsg = getNotifyMsg_ToActor(taskitem);
 		if (SendTcpMsg_DGHDR(ip, port, sendmsg, false, recvmsg))//向Actor发送任务
 		{
-			_debug_to(0,("addr: %s:%u ,send task success, TaskID=%d, text: %s\n"), ip.c_str(), port, taskid, tasktext.c_str());
+			_debug_to( 0, ("addr: %s:%u ,send task success, TaskID=%d, text: %s\n"), ip.c_str(), port, taskid, tasktext.c_str());
 			result_str = getjson_runtaskresult(taskid);
 		}
 		else
@@ -2175,7 +2175,7 @@ std::string getjson_runtask_now(mergetaskinfo taskitem)
 			sleep(1000);
 		}
 		std::string msgresult = (notifyresult) ? ("success") : ("failed");
-		_debug_to(0,("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
+		_debug_to( 0, ("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
 	}
 	else
 	{
@@ -2324,7 +2324,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 #else
 			httpReqBodyStr_ansi = bodyStr;
 #endif
-			_debug_to(0,("\nhttp server receive message from %s, path is %s, query param is %s, body is %s\n"), hostStr.c_str(), pathStr.c_str(), queryStr.c_str(), httpReqBodyStr_ansi.c_str());
+			_debug_to( 0, ("\nhttp server receive message from %s, path is %s, query param is %s, body is %s\n"), hostStr.c_str(), pathStr.c_str(), queryStr.c_str(), httpReqBodyStr_ansi.c_str());
 		}
 
 		//解析路径
@@ -2486,7 +2486,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					MakeVedio = mapBodyIntParameter["MakeVedio"];
 				if (mapBodyDoubleParameter.find("Speed") != mapBodyDoubleParameter.end())
 					Speed = mapBodyDoubleParameter["Speed"];
-				_debug_to(0,("TaskID=%d,TaskName=%s, BackMSg=%s, MakeVedio=%d, Speed=%.1f\n"), TaskID, TaskName.c_str(), BackMSg.c_str(), MakeVedio, Speed);
+				_debug_to( 0, ("TaskID=%d,TaskName=%s, BackMSg=%s, MakeVedio=%d, Speed=%.1f\n"), TaskID, TaskName.c_str(), BackMSg.c_str(), MakeVedio, Speed);
 
 				std::string VirtualmanKey = "";
 				if (mapBodyStrParameter.find("VirtualmanKey") != mapBodyStrParameter.end())
@@ -2542,7 +2542,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 							sleep(1000);
 						}
 						std::string msgresult = (notifyresult) ? ("success") : ("failed");
-						_debug_to(0,("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
+						_debug_to( 0, ("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
 					}
 					else
 					{
@@ -2570,7 +2570,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 						//添加新合成任务到数据库
 						bool update = (digitalmysql::isexisttask_taskid(TaskID)) ? (true) : (false);
-						_debug_to(0,("TaskID=%d, update=%d\n"), TaskID, update);
+						_debug_to( 0, ("TaskID=%d, update=%d\n"), TaskID, update);
 						digitalmysql::addtaskinfo(TaskID, new_taskitem, update);
 						digitalmysql::setmergestate(TaskID, 0);//任务状态为进行中
 						digitalmysql::setmergeprogress(TaskID, 0);//合成进度为0
@@ -2627,7 +2627,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 								long long dwS = gettimecount();
 								httpRetStr_ansi = getjson_runtask_now(new_mergetaskitem);
 								long long dwE = gettimecount();
-								_debug_to(0,("++++++++++++++任务执行总时间: %d秒++++++++++++++\n"), dwE-dwS);
+								_debug_to( 0, ("++++++++++++++任务执行总时间: %d秒++++++++++++++\n"), dwE-dwS);
 							}
 						}
 						else
@@ -2784,11 +2784,11 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				//
 				long long end_time = gettimecount();
 				std::string result = (result_debug) ? ("OK") : ("FAILED");
-				_debug_to(0,("\nhttp server: return string output %s, length=%d, result=%s, runtime=[%lld]s\n"), httpRetStr_debug.c_str(), (int)httpRetStr_ansi.length(), result.c_str(), end_time - start_time);
+				_debug_to( 0, ("\nhttp server: return string output %s, length=%d, result=%s, runtime=[%lld]s\n"), httpRetStr_debug.c_str(), (int)httpRetStr_ansi.length(), result.c_str(), end_time - start_time);
 			}
 			catch(...)
 			{
-				_debug_to(1,("\nhttp server: return databuff throw exception\n"));
+				_debug_to( 1, ("\nhttp server: return databuff throw exception\n"));
 			}
 
 		}
@@ -2816,7 +2816,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 				struct evbuffer* buf = evbuffer_new();
 				if (!buf) {
-					_debug_to(1,("\nhttp server: return string fail for malloc buffer fail\n"));
+					_debug_to( 1, ("\nhttp server: return string fail for malloc buffer fail\n"));
 					return;
 				}
 				evbuffer_add_printf(buf, ("%s\n"), httpRetStr_utf8.c_str());//httpRetStr_utf8是返回的内容
@@ -2826,17 +2826,17 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				//
 				long long end_time = gettimecount();
 				std::string result = (result_debug)? ("OK"):("FAILED");
-				_debug_to(0,("\nhttp server: return string output %s, length=%d, result=%s, runtime=[%lld]s\n"), httpRetStr_debug.c_str(), (int)httpRetStr_ansi.length(), result.c_str(), end_time-start_time);
+				_debug_to( 0, ("\nhttp server: return string output %s, length=%d, result=%s, runtime=[%lld]s\n"), httpRetStr_debug.c_str(), (int)httpRetStr_ansi.length(), result.c_str(), end_time-start_time);
 			}
 			catch (...) 
 			{
-				_debug_to(1,("\nhttp server: return string throw exception\n"));
+				_debug_to( 1, ("\nhttp server: return string throw exception\n"));
 			}
 
 		}	
 	}
 	catch (...) {
-		_debug_to(1,("\nhttp server handler throw exception\n"));
+		_debug_to( 1, ("\nhttp server handler throw exception\n"));
 	}
 }
 
@@ -2844,38 +2844,38 @@ int main()
 {
 	std::string configpath = getexepath(); 
 	configpath = str_replace(configpath, std::string("\\"), std::string("/"));configpath += "/config.txt";
-	_debug_to(0,("COFIG PATH=%s\n"), configpath.c_str());
+	_debug_to( 0, ("COFIG PATH=%s\n"), configpath.c_str());
 	if (!getconfig_global(configpath))
 	{
-		_debug_to(1,("GLOBAL config load failed,please check <config.txt> \n"));
+		_debug_to( 1, ("GLOBAL config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 
 	if (!digitalmysql::getmysqlconfig(configpath))
 	{
-		_debug_to(1,("MYSQL config load failed,please check <config.txt> \n"));
+		_debug_to( 1, ("MYSQL config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 	if (!getconfig_actornode(configpath))
 	{
-		_debug_to(1,("ACTOR config load failed,please check <config.txt> \n"));
+		_debug_to( 1, ("ACTOR config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 	if (!getconfig_playnode(configpath))
 	{
-		_debug_to(1,("PLAYNODE config load failed,please check <config.txt> \n"));
+		_debug_to( 1, ("PLAYNODE config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 
 	if (!getconfig_digitvideopath(configpath))
 	{
-		_debug_to(1,("DIGITVIDEO config load failed,please check <config.txt> \n"));
+		_debug_to( 1, ("DIGITVIDEO config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 
 	if (!getconfig_rabbitmq(configpath))
 	{
-		_debug_to(1,("RABBITMQ config load failed,please check <config.txt> \n"));
+		_debug_to( 1, ("RABBITMQ config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 	g_RabbitmqSender = new nsRabbitmq::cwRabbitmqPublish(rabbitmq_ip, rabbitmq_port, rabbitmq_user, rabbitmq_passwd, nullptr, nullptr);
@@ -2888,16 +2888,16 @@ int main()
 	int ret = server.start_http_server(global_http_generic_handler, nullptr, httpPort, threadCount, 10240);//开启监听
 	if (ret < 0) 
 	{
-		_debug_to(1,("start_http_server failed\n"));
+		_debug_to( 1, ("start_http_server failed\n"));
 	}
 	else {
-		_debug_to(1,("start_http_server success\n"));
+		_debug_to( 1, ("start_http_server success\n"));
 	}
 
     //初始化Actor容器
 	pthread_mutex_init(&mutex_actorinfo, NULL);
 	pthread_mutex_init(&mutex_mergetaskinfo, NULL);
-	_debug_to(1,("Container_actornode size = %d\n"), Container_actornode.size());
+	_debug_to( 1, ("Container_actornode size = %d\n"), Container_actornode.size());
 	ACTORNODE_MAP::iterator itActorNode = Container_actornode.begin();
 	for (itActorNode; itActorNode != Container_actornode.end(); ++itActorNode)
 	{
@@ -2921,22 +2921,22 @@ int main()
     ret = pthread_create(&threadid_updateactorinfo, nullptr, pthread_updateactorinfo, nullptr);
     if (ret != 0)
     {
-		_debug_to(1,("thread_updateactorinfo create error\n"));
+		_debug_to( 1, ("thread_updateactorinfo create error\n"));
     }
     else
     {
-		_debug_to(1,("thread_updateactorinfo is runing\n"));
+		_debug_to( 1, ("thread_updateactorinfo is runing\n"));
     }
 
     //开启合成任务分配线程
 	ret = pthread_create(&threadid_runtask_thread, nullptr, pthread_runtask_thread, nullptr);
 	if (ret != 0)
 	{
-		_debug_to(1,("thread_assigntask create error\n"));
+		_debug_to( 1, ("thread_assigntask create error\n"));
 	}
 	else
 	{
-		_debug_to(1,("thread_assigntask is runing\n"));
+		_debug_to( 1, ("thread_assigntask is runing\n"));
 	}
 
 #if DF_OPEN_PATCH_GET
@@ -2945,11 +2945,11 @@ int main()
 	ret = pthread_create(&threadid_patchdata, nullptr, pthread_patchdata, nullptr);
 	if (ret != 0)
 	{
-		_debug_to(1,("thread_patchdata create error\n"));
+		_debug_to( 1, ("thread_patchdata create error\n"));
 	}
 	else
 	{
-		_debug_to(1,("thread_patchdata is runing\n"));
+		_debug_to( 1, ("thread_patchdata is runing\n"));
 	}
 
 	//开启资产获取线程
@@ -2957,11 +2957,11 @@ int main()
 	ret = pthread_create(&threadid_getdata, nullptr, pthread_getdata, nullptr);
 	if (ret != 0)
 	{
-		_debug_to(1,("thread_getdata create error\n"));
+		_debug_to( 1, ("thread_getdata create error\n"));
 	}
 	else
 	{
-		_debug_to(1,("thread_getdata is runing\n"));
+		_debug_to( 1, ("thread_getdata is runing\n"));
 	}
 #endif
 
@@ -2969,7 +2969,7 @@ int main()
 	while (1)
 	{
 		char ch[256] = {0};
-		_debug_to(1,("输入'Q'或‘q’退出程序:\n"));
+		_debug_to( 1, ("输入'Q'或‘q’退出程序:\n"));
 		gets_s(ch, 255);
 		std::string str; str = ch;
 		if (str.compare("Q")==0 || str.compare("q")==0)

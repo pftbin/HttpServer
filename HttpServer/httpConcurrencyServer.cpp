@@ -1,6 +1,9 @@
 #include "httpConcurrencyServer.h"
 #include "public.h"
 
+//custom loger
+static FileWriter loger_httpserver("httpserver.log");
+
 static bool globalIsIPStringValid(std::string IPString)
 {
 	std::string strIpAddr;
@@ -148,17 +151,17 @@ namespace httpServer
 				pSeverThread = new struct httpThread[nthreads];//创建100个httpTreads结构体
                 if (pSeverThread == nullptr)
 				{
-                    _debug_to(0,("start http server failed,error:new http thread failed\n"));
+                    _debug_to(loger_httpserver, 0, ("start http server failed,error:new http thread failed\n"));
 					return -1;
 				}
 			}
 			catch (...)
 			{
-                _debug_to(0,("start http server failed, error:new http thread catch exception\n"));
+                _debug_to(loger_httpserver, 0, ("start http server failed, error:new http thread catch exception\n"));
 				return -1;
 			}
 		}
-        _debug_to(0,("start http server begin, port is %d, ipaddr is %s\n"), port, ipaddr.c_str());
+        _debug_to(loger_httpserver, 0, ("start http server begin, port is %d, ipaddr is %s\n"), port, ipaddr.c_str());
 		try
 		{
 			int r, i;
@@ -177,7 +180,7 @@ namespace httpServer
 				//event_base_new 创建event_base对象
                 if (base == nullptr)
 				{
-                    _debug_to(0,("start http server failed,error:new http base failed\n"));
+                    _debug_to(loger_httpserver, 0, ("start http server failed,error:new http base failed\n"));
 					stop_failed_server(i);
 					return -1;
 				}
@@ -185,7 +188,7 @@ namespace httpServer
 				struct evhttp *httpd = evhttp_new(base);//创建http服务器 base是用于接收HTTP事件的事件库
                 if (httpd == nullptr)
 				{
-                    _debug_to(0,("start http server failed,error:new evhttp_new failed\n"));
+                    _debug_to(loger_httpserver, 0, ("start http server failed,error:new evhttp_new failed\n"));
 					stop_failed_server(i);
 					event_base_free(base);
 					return -1;
@@ -194,7 +197,7 @@ namespace httpServer
 				r = evhttp_accept_socket(httpd, nfd);//使http server可以接受来自指定的socket的连接，可重复调用来绑定到不同的socket
 				if (r != 0)
 				{
-                    _debug_to(0,("start http server failed,error:accept socket failed\n"));
+                    _debug_to(loger_httpserver, 0, ("start http server failed,error:accept socket failed\n"));
 					stop_failed_server(i);
 					evhttp_free(httpd);
 					event_base_free(base);
@@ -213,7 +216,7 @@ namespace httpServer
 				//返回新线程的句柄
                 if (pSeverThread[i].threadhandle == nullptr)
 				{
-                    _debug_to(0,("start http server failed,error:create thread failed\n"));
+                    _debug_to(loger_httpserver, 0, ("start http server failed,error:create thread failed\n"));
 					stop_failed_server(i);
 					evhttp_free(httpd);
 					event_base_free(base);
@@ -224,7 +227,7 @@ namespace httpServer
 		}
 		catch (...)
 		{
-            _debug_to(0,("start http server failed,error:exception\n"));
+            _debug_to(loger_httpserver, 0, ("start http server failed,error:exception\n"));
 			return -1;
 		}
 		return 0;
@@ -269,7 +272,7 @@ namespace httpServer
 		{
 			if (pSeverThread)
 			{
-                _debug_to(0,("stop_failed_server begin\n"));
+                _debug_to(loger_httpserver, 0, ("stop_failed_server begin\n"));
 				int i = threadcount - 1;
 				while (i >= 0)
 				{
@@ -295,7 +298,7 @@ namespace httpServer
 							{
 								;
 							}
-                            _debug_to(0,("stop_failed_server timeout ,terminate thread\n"));
+                            _debug_to(loger_httpserver, 0, ("stop_failed_server timeout ,terminate thread\n"));
 						}
 						::CloseHandle(pSeverThread[i].threadhandle);
 					}
@@ -315,7 +318,7 @@ namespace httpServer
 				WSACleanup();
 				delete[]pSeverThread;
                 pSeverThread = nullptr;
-                _debug_to(0,("stop failed server finish\n"));
+                _debug_to(loger_httpserver, 0, ("stop failed server finish\n"));
 			}
 		}
 		catch (...)
@@ -330,7 +333,7 @@ namespace httpServer
 		{
 			if (pSeverThread)
 			{
-                _debug_to(0,("stop http sever begin\n"));
+                _debug_to(loger_httpserver, 0, ("stop http sever begin\n"));
 				int i = nthreads - 1;
 				while (i >= 0)
 				{
@@ -342,7 +345,7 @@ namespace httpServer
 					i--;
 				}
 				i = nthreads - 1;
-                _debug_to(0,("stop http sever base finished\n"));
+                _debug_to(loger_httpserver, 0, ("stop http sever base finished\n"));
 				while (i >= 0)
 				{
 					if (pSeverThread[i].threadhandle)
@@ -357,13 +360,13 @@ namespace httpServer
 							{
 								;
 							}
-                            _debug_to(0,("stop http server timeout ,terminate thread\n"));
+                            _debug_to(loger_httpserver, 0, ("stop http server timeout ,terminate thread\n"));
 						}
 						::CloseHandle(pSeverThread[i].threadhandle);
 					}
 					i--;
 				}
-                _debug_to(0,("stop http sever thread finished\n"));
+                _debug_to(loger_httpserver, 0, ("stop http sever thread finished\n"));
 				i = nthreads - 1;
 				while (i >= 0)
 				{
@@ -375,7 +378,7 @@ namespace httpServer
 					}
 					i--;		
 				}
-                _debug_to(0,("stop http sever event base release finished\n"));
+                _debug_to(loger_httpserver, 0, ("stop http sever event base release finished\n"));
 				if (nfd > 0)
 				{
 					shutdown(nfd, SD_BOTH);
@@ -385,7 +388,7 @@ namespace httpServer
                 mainWindow = nullptr;
 				delete[]pSeverThread;
                 pSeverThread = nullptr;
-                _debug_to(0,("stop http server finish\n"));
+                _debug_to(loger_httpserver, 0, ("stop http server finish\n"));
 			}
 		}
 		catch (...)
@@ -448,7 +451,7 @@ namespace httpServer
         }
 		int flags = fcntl(nsfd, F_GETFL, 0);
         if (fcntl(nsfd, F_SETFL, flags | O_NONBLOCK) < 0) {//允许非阻塞模式
-            _debug_to(1,("http server fcntl fail\n"));
+            _debug_to(loger_httpserver, 1, ("http server fcntl fail\n"));
         }
 		return nsfd;
 	}
@@ -460,7 +463,7 @@ namespace httpServer
 		int nfd = httpserver_bindsocket(port, backlog);
 		if (nfd < 0)
 		{
-			_debug_to(1,("httpserver_bindsocket\n"));
+			_debug_to(loger_httpserver, 1, ("httpserver_bindsocket\n"));
 			return -1;
 		}
 		for (int i = 0; i < nthreads; i++)
@@ -468,21 +471,21 @@ namespace httpServer
 			struct event_base *base = event_base_new();
             if (base == nullptr)
 			{
-				_debug_to(1,("event_base_new\n"));
+				_debug_to(loger_httpserver, 1, ("event_base_new\n"));
 				return -1;
 			}
 			pSeverThread[i].eventbase = base;
 			struct evhttp *httpd = evhttp_new(base);
             if (httpd == nullptr)
 			{
-				_debug_to(1,("evhttp_new\n"));
+				_debug_to(loger_httpserver, 1, ("evhttp_new\n"));
 				return -1;
 			}
 			pSeverThread[i].httpserver = httpd;
 			int r = evhttp_accept_socket(httpd, nfd);
 			if (r != 0)
 			{
-				_debug_to(1,("evhttp_accept_socket\n"));
+				_debug_to(loger_httpserver, 1, ("evhttp_accept_socket\n"));
 				return 0;
 			}
 			evhttp_set_timeout(httpd, 10);
@@ -490,7 +493,7 @@ namespace httpServer
             r = pthread_create(&pSeverThread[i].ths, nullptr, GlobalHttpBaseFunc, &pSeverThread[i]);
 			if (r != 0)
 			{
-				_debug_to(1,("pthread_create\n"));
+				_debug_to(loger_httpserver, 1, ("pthread_create\n"));
 				return -1;
 			}
 			//threadt[i] = pSeverThread[i].ths;
@@ -566,7 +569,7 @@ namespace httpServer
         {
             if (pSeverThread)
             {
-                _debug_to(0,("stop http sever begin\n"));
+                _debug_to(loger_httpserver, 0, ("stop http sever begin\n"));
                 int i = nthreads - 1;
                 while (i >= 0)
                 {
@@ -578,13 +581,13 @@ namespace httpServer
                     i--;
                 }
                 i = nthreads - 1;
-                _debug_to(0,("stop http sever base finished\n"));
+                _debug_to(loger_httpserver, 0, ("stop http sever base finished\n"));
                 while (i >= 0)
                 {
                     pthread_join(pSeverThread[i].ths, nullptr);
                     i--;
                 }
-                _debug_to(0,("stop http sever thread finished\n"));
+                _debug_to(loger_httpserver, 0, ("stop http sever thread finished\n"));
                 i = nthreads - 1;
                 while (i >= 0)
                 {
@@ -595,7 +598,7 @@ namespace httpServer
                     }
                     i--;
                 }
-                _debug_to(0,("stop http sever event base release finished\n"));
+                _debug_to(loger_httpserver, 0, ("stop http sever event base release finished\n"));
                 if (nfd > 0)
                 {
                     shutdown(nfd, SHUT_RDWR);
@@ -605,7 +608,7 @@ namespace httpServer
                 mainWindow = nullptr;
                 delete[]pSeverThread;
                 pSeverThread = nullptr;
-                _debug_to(0,("stop http server finish\n"));
+                _debug_to(loger_httpserver, 0, ("stop http server finish\n"));
             }
         }
         catch (...)

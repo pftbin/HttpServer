@@ -421,7 +421,7 @@ char* read_file(const char* filename, long& file_size)
 
     fp = fopen(filename, "rb");
     if (fp == nullptr) {
-        _debug_to(1,("Error opening file %s\n"), filename);
+        _debug_to(loger_public, 1, ("Error opening file %s\n"), filename);
         return nullptr;
     }
 
@@ -431,7 +431,7 @@ char* read_file(const char* filename, long& file_size)
 
     buffer = (char*)malloc(file_size + 1);
     if (buffer == nullptr) {
-        _debug_to(1,("Error allocating memory for file %s\n"), filename);
+        _debug_to(loger_public, 1, ("Error allocating memory for file %s\n"), filename);
         return nullptr;
     }
 

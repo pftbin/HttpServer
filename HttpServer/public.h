@@ -21,6 +21,9 @@
 #include "loghelp.h"
 #define _debug_to printf_tofile
 
+//custom loger
+static FileWriter loger_public("public.log");
+
 //
 void unicode_to_utf8(const wchar_t* in, size_t len, std::string& out);
 
@@ -96,7 +99,7 @@ namespace picture
     {
         FILE* fp = fopen(path, "rb");
         if (!fp) {
-            _debug_to(1,("[GetBMPWidthHeight]:can't open file, %s\n"), path);
+            _debug_to(loger_public, 1, ("[GetBMPWidthHeight]:can't open file, %s\n"), path);
             return -1; // 打开文件失败
         }
 
@@ -122,18 +125,18 @@ namespace picture
 
         if (fopen_s(&pfRead, path, "rb") != 0)
         {
-            _debug_to(1,("[GetPNGWidthHeight]:can't open file, %s\n"), path);
+            _debug_to(loger_public, 1, ("[GetPNGWidthHeight]:can't open file, %s\n"), path);
             return -1;
         }
 
         for (int i = 0; i < 4; i++)
             fread(&uc[i], sizeof(unsigned char), 1, pfRead);
         if (MAKEUI(uc[0], uc[1], uc[2], uc[3]) != 0x89504e47)
-            _debug_to(1,("[GetPNGWidthHeight]:png format error, %s\n"), path);
+            _debug_to(loger_public, 1, ("[GetPNGWidthHeight]:png format error, %s\n"), path);
         for (int i = 0; i < 4; i++)
             fread(&uc[i], sizeof(unsigned char), 1, pfRead);
         if (MAKEUI(uc[0], uc[1], uc[2], uc[3]) != 0x0d0a1a0a)
-            _debug_to(1,("[GetPNGWidthHeight]:png format error, %s\n"), path);
+            _debug_to(loger_public, 1, ("[GetPNGWidthHeight]:png format error, %s\n"), path);
 
         fseek(pfRead, 16, SEEK_SET);
         for (int i = 0; i < 4; i++)
@@ -157,7 +160,7 @@ namespace picture
 
         if (fopen_s(&pfRead, path, "rb") != 0)
         {
-            _debug_to(1,("[GetJPEGWidthHeight]:can't open file:%s\n"), path);
+            _debug_to(loger_public, 1, ("[GetJPEGWidthHeight]:can't open file:%s\n"), path);
             return -1;
         }
 
@@ -211,7 +214,7 @@ namespace picture
             default:
                 fread(&ucHigh, sizeof(char), 1, pfRead);
                 fread(&ucLow, sizeof(char), 1, pfRead);
-                _debug_to(1,("[GetJPEGWidthHeight]:unknown id: 0x%x ;  length=%hd\n"), id, MAKEUS(ucHigh, ucLow));
+                _debug_to(loger_public, 1, ("[GetJPEGWidthHeight]:unknown id: 0x%x ;  length=%hd\n"), id, MAKEUS(ucHigh, ucLow));
                 if (fseek(pfRead, (long)(MAKEUS(ucHigh, ucLow) - 2), SEEK_CUR) != 0)
                     Finished = -2;
                 break;
@@ -219,9 +222,9 @@ namespace picture
         }
 
         if (Finished == -1)
-            _debug_to(1,("[GetJPEGWidthHeight]:can't find SOF0!\n"));
+            _debug_to(loger_public, 1, ("[GetJPEGWidthHeight]:can't find SOF0!\n"));
         else if (Finished == -2)
-            _debug_to(1,("[GetJPEGWidthHeight]:jpeg format error!\n"));
+            _debug_to(loger_public, 1, ("[GetJPEGWidthHeight]:jpeg format error!\n"));
 
         return Finished;
     }
@@ -258,7 +261,7 @@ namespace picture
             *pWidth = 0; *pHeight = 0;
             *pBitCount = 32;
             format = "";
-            _debug_to(1,("[GetPicWidthHeight]:only support jpg and png\n"));
+            _debug_to(loger_public, 1, ("[GetPicWidthHeight]:only support jpg and png\n"));
         }
     }
 }

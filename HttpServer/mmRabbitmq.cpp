@@ -9,6 +9,9 @@
 #include "amqp_tcp_socket.h"
 #pragma comment(lib,"librabbitmq.4.lib")
 
+//custom loger
+static FileWriter loger_rabbitmq("rabbitmq.log");
+
 namespace nsRabbitmq
 {
 int rabbitmq_error(amqp_rpc_reply_t x, std::string memo, char const *context)
@@ -17,16 +20,16 @@ int rabbitmq_error(amqp_rpc_reply_t x, std::string memo, char const *context)
     case AMQP_RESPONSE_NORMAL:
         return 0;
     case AMQP_RESPONSE_NONE:
-        _debug_to(1,("rabbitmq[%s] %s missing RPC reply type\n"), memo.c_str(), context);
+        _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] %s missing RPC reply type\n"), memo.c_str(), context);
         break;
     case AMQP_RESPONSE_LIBRARY_EXCEPTION:
-        _debug_to(1,("rabbitmq[%s] [LIBRARY_EXCEPTION] %s:%s\n"), memo.c_str(), context, amqp_error_string2(x.library_error));
+        _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] [LIBRARY_EXCEPTION] %s:%s\n"), memo.c_str(), context, amqp_error_string2(x.library_error));
         break;
     case AMQP_RESPONSE_SERVER_EXCEPTION:
         switch (x.reply.id) {
         case 0x000A0032 : {//AMQP_CONNECTION_CLOSE_METHOD
             amqp_connection_close_t *m = reinterpret_cast<amqp_connection_close_t*>(x.reply.decoded);
-            _debug_to(1,("rabbitmq[%s] [SERVER_EXCEPTION] %s: server connection error %uh, message: %.*s\n"),
+            _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] [SERVER_EXCEPTION] %s: server connection error %uh, message: %.*s\n"),
                       memo.c_str(),
                       context,
                       m->reply_code,
@@ -36,7 +39,7 @@ int rabbitmq_error(amqp_rpc_reply_t x, std::string memo, char const *context)
         }
         case 0x00140028 : { //AMQP_CHANNEL_CLOSE_METHOD
             amqp_channel_close_t *m = reinterpret_cast<amqp_channel_close_t*>(x.reply.decoded);
-            _debug_to(1,("rabbitmq[%s][SERVER_EXCEPTION] %s: server channel error %uh, message: %.*s\n"),
+            _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s][SERVER_EXCEPTION] %s: server channel error %uh, message: %.*s\n"),
                       memo.c_str(),
                       context,
                       m->reply_code,
@@ -45,7 +48,7 @@ int rabbitmq_error(amqp_rpc_reply_t x, std::string memo, char const *context)
             break;
         }
         default:
-            _debug_to(1,("rabbitmq[%s] %s [SERVER_EXCEPTION] unknown server error, method id is 0x%08X\n"), memo.c_str(), context, x.reply.id);
+            _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] %s [SERVER_EXCEPTION] unknown server error, method id is 0x%08X\n"), memo.c_str(), context, x.reply.id);
             break;
         }
         break;
@@ -55,16 +58,16 @@ int rabbitmq_error(amqp_rpc_reply_t x, std::string memo, char const *context)
 
 bool rabbitmq_destory(amqp_connection_state_t rabbitmq_conn, std::string memo)
 {
-    _debug_to(0,("rabbitmq[%s] try to disconnect\n"), memo.c_str());
+    _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] try to disconnect\n"), memo.c_str());
     bool returnFlag = true;
     if (nullptr != rabbitmq_conn) {
         if (rabbitmq_error(amqp_connection_close(rabbitmq_conn, AMQP_REPLY_SUCCESS), memo, "Closing connection") != AMQP_STATUS_OK) {
             returnFlag = false;
-            _debug_to(0,("rabbitmq[%s] try to disconnect amqp_connection_close error\n"), memo.c_str());
+            _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] try to disconnect amqp_connection_close error\n"), memo.c_str());
         }
         if (amqp_destroy_connection(rabbitmq_conn) != AMQP_STATUS_OK) {
             returnFlag = false;           
-            _debug_to(0,("rabbitmq[%s] try to disconnectamqp_destroy_connection error\n"), memo.c_str());
+            _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] try to disconnectamqp_destroy_connection error\n"), memo.c_str());
         }
     }
     return returnFlag;
@@ -73,15 +76,15 @@ bool rabbitmq_destory(amqp_connection_state_t rabbitmq_conn, std::string memo)
 bool rabbitmq_initial(amqp_connection_state_t *rabbitmq_conn, amqp_socket_t **p_rabbitmq_socket, std::string memo,
                       std::string host, int port, std::string user, std::string pwd)
 {
-    _debug_to(0,("rabbitmq[%s] try to connect\n"), memo.c_str());
+    _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] try to connect\n"), memo.c_str());
     *rabbitmq_conn = amqp_new_connection();
     if (nullptr == *rabbitmq_conn) {
-        _debug_to(0,("rabbitmq[%s] new connection failed\n"), memo.c_str());
+        _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] new connection failed\n"), memo.c_str());
         return false;
     }
     *p_rabbitmq_socket = amqp_tcp_socket_new(*rabbitmq_conn);
     if (nullptr == *p_rabbitmq_socket) {
-        _debug_to(0,("rabbitmq[%s] new socket failed\n"), memo.c_str());
+        _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] new socket failed\n"), memo.c_str());
 
         amqp_destroy_connection(*rabbitmq_conn);
         *rabbitmq_conn = nullptr;
@@ -90,7 +93,7 @@ bool rabbitmq_initial(amqp_connection_state_t *rabbitmq_conn, amqp_socket_t **p_
 
     int status = amqp_socket_open(*p_rabbitmq_socket, host.c_str(), port);
     if (status != AMQP_STATUS_OK) {
-        _debug_to(0,("rabbitmq[%s] socket open failed,return %d\n"), memo.c_str(), status);
+        _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] socket open failed,return %d\n"), memo.c_str(), status);
 
         amqp_destroy_connection(*rabbitmq_conn);
         *rabbitmq_conn = nullptr;
@@ -103,20 +106,20 @@ bool rabbitmq_initial(amqp_connection_state_t *rabbitmq_conn, amqp_socket_t **p_
         *rabbitmq_conn = nullptr;
         return false;
     }
-    _debug_to(0,("rabbitmq[%s] try to connect success\n"), memo.c_str());
+    _debug_to(loger_rabbitmq, 1, ("rabbitmq[%s] try to connect success\n"), memo.c_str());
     return true;
 }
 
 bool rabbitmq_publish_initial(amqp_connection_state_t rabbitmq_conn, amqp_channel_t channelId)
 {
-    _debug_to(0,("rabbitmq try to init send channel\n"));
+    _debug_to(loger_rabbitmq, 1, ("rabbitmq try to init send channel\n"));
     amqp_channel_open(rabbitmq_conn, channelId);
     if(0 != rabbitmq_error(amqp_get_rpc_reply(rabbitmq_conn), ("sender device"), "open channel")) {
-        _debug_to(0,("sender device open channel failed\n"));
+        _debug_to(loger_rabbitmq, 1, ("sender device open channel failed\n"));
         amqp_channel_close(rabbitmq_conn, channelId, AMQP_REPLY_SUCCESS);
         return false;
     }
-    _debug_to(0,("rabbitmqtry to init send channel success\n"));
+    _debug_to(loger_rabbitmq, 1, ("rabbitmqtry to init send channel success\n"));
     return true;
 }
 
@@ -132,10 +135,10 @@ bool rabbitmq_consume_initial(amqp_connection_state_t rabbitmq_conn, amqp_channe
     show_queuename = queuename;
     show_routkey = routkey;
 #endif
-    _debug_to(0,("rabbitmq try to init recv channel\n"));
+    _debug_to(loger_rabbitmq, 1, ("rabbitmq try to init recv channel\n"));
     amqp_channel_open(rabbitmq_conn, channelId);
     if(0 != rabbitmq_error(amqp_get_rpc_reply(rabbitmq_conn), ("recver device"), "open channel")) {
-        _debug_to(0,("recver device open channel failed\n"));
+        _debug_to(loger_rabbitmq, 1, ("recver device open channel failed\n"));
         amqp_channel_close(rabbitmq_conn, channelId, AMQP_REPLY_SUCCESS);
         return false;
     }
@@ -144,7 +147,7 @@ bool rabbitmq_consume_initial(amqp_connection_state_t rabbitmq_conn, amqp_channe
     amqp_bytes_t _queue = amqp_cstring_bytes(queuename.c_str());
     amqp_queue_declare(rabbitmq_conn, channelId, _queue, 0, 0, 0, 1, amqp_empty_table);
     if(0 != rabbitmq_error(amqp_get_rpc_reply(rabbitmq_conn), ("recver device"), "queue declare")) {
-        _debug_to(1,("recver device define queue %s failed"), show_queuename.c_str());
+        _debug_to(loger_rabbitmq, 1, ("recver device define queue %s failed"), show_queuename.c_str());
         amqp_channel_close(rabbitmq_conn, channelId, AMQP_REPLY_SUCCESS);
         return false;
     }
@@ -153,19 +156,19 @@ bool rabbitmq_consume_initial(amqp_connection_state_t rabbitmq_conn, amqp_channe
     amqp_bytes_t _routkey = amqp_cstring_bytes(routkey.c_str());
     amqp_queue_bind(rabbitmq_conn, channelId, _queue, _exchange, _routkey, amqp_empty_table);
     if(0 != rabbitmq_error(amqp_get_rpc_reply(rabbitmq_conn), ("recver device"), "queue bind")) {
-        _debug_to(1,("recver device bind queue %s to exchange %s failed，key=%s\n"), show_queuename.c_str(), show_exchangename.c_str(), show_routkey.c_str());
+        _debug_to(loger_rabbitmq, 1, ("recver device bind queue %s to exchange %s failed，key=%s\n"), show_queuename.c_str(), show_exchangename.c_str(), show_routkey.c_str());
         amqp_channel_close(rabbitmq_conn, channelId, AMQP_REPLY_SUCCESS);
         return false;
     }
-    _debug_to(1,("recver device bind queue %s to exchange %s success，key=%s\n"), show_queuename.c_str(), show_exchangename.c_str(), show_routkey.c_str());
+    _debug_to(loger_rabbitmq, 1, ("recver device bind queue %s to exchange %s success，key=%s\n"), show_queuename.c_str(), show_exchangename.c_str(), show_routkey.c_str());
 
     amqp_basic_consume(rabbitmq_conn, channelId, _queue, amqp_empty_bytes, 0, 0, 0, amqp_empty_table);
     if (0 != rabbitmq_error(amqp_get_rpc_reply(rabbitmq_conn), ("recver device"), "consuming")) {
-        _debug_to(0,("recver device start run error\n"));
+        _debug_to(loger_rabbitmq, 1, ("recver device start run error\n"));
         amqp_channel_close(rabbitmq_conn, channelId, AMQP_REPLY_SUCCESS);
         return false;
     }
-    _debug_to(0,("rabbitmq try to init recv channel success\n"));
+    _debug_to(loger_rabbitmq, 1, ("rabbitmq try to init recv channel success\n"));
     return true;
 }
 
@@ -206,7 +209,7 @@ void cwRabbitmqPublish::send(mmRabbitmqData &data)
 void cwRabbitmqPublish::run(cwRabbitmqPublish *pClient)
 {
     if (pClient == nullptr || pClient->m_pRun == nullptr) return;
-    _debug_to(0,("rabbitmq sender device thread start success\n"));
+    _debug_to(loger_rabbitmq, 1, ("rabbitmq sender device thread start success\n"));
 
     bool rabbitmqFlag = false;
     //bool dealFlag = false;
@@ -226,12 +229,12 @@ void cwRabbitmqPublish::run(cwRabbitmqPublish *pClient)
             rabbitmqFlag = rabbitmq_publish_initial(rabbitmq_conn, channelId);
         }
     } catch (...) {
-        _debug_to(0,("rabbitmq publish thread initial throw exception\n"));
+        _debug_to(loger_rabbitmq, 1, ("rabbitmq publish thread initial throw exception\n"));
     }
 
     while (nsShareMemory::semaphore_timedwait(pClient->m_pRun->m_handle, 5000) >= 0) {
         if (!pClient->m_pRun->m_exitflag) {
-            _debug_to(0,("rabbitmq sender device thread will exit\n"));
+            _debug_to(loger_rabbitmq, 1, ("rabbitmq sender device thread will exit\n"));
             break; //判断线程是否退出
         }
 
@@ -244,7 +247,7 @@ void cwRabbitmqPublish::run(cwRabbitmqPublish *pClient)
                         rabbitmqFlag = rabbitmq_publish_initial(rabbitmq_conn, channelId);
                     }
                 } catch (...) {
-                    _debug_to(0,("rabbitmq publish thread initial throw exception\n"));
+                    _debug_to(loger_rabbitmq, 1, ("rabbitmq publish thread initial throw exception\n"));
                 }
                 if (rabbitmqFlag) {
                     interval = 5;
@@ -374,7 +377,7 @@ void cwRabbitmqPublish::run(cwRabbitmqPublish *pClient)
                 //}
                 delete pData;
             } catch(...) {
-                _debug_to(0,("rabbitmq publish thread deal throw exception\n"));
+                _debug_to(loger_rabbitmq, 1, ("rabbitmq publish thread deal throw exception\n"));
             }
         }
         list.clear();
@@ -422,7 +425,7 @@ cwRabbitmqConsume::~cwRabbitmqConsume()
 void cwRabbitmqConsume::run(cwRabbitmqConsume *pClient)
 {
     if (pClient == nullptr || pClient->m_pRun == nullptr) return;
-    _debug_to(0,("rabbitmq recver device thread start success\n"));
+    _debug_to(loger_rabbitmq, 1, ("rabbitmq recver device thread start success\n"));
 
     bool rabbitmqFlag = false;
     std::chrono::steady_clock::time_point curCheckTime, preCheckTime;
@@ -437,7 +440,7 @@ void cwRabbitmqConsume::run(cwRabbitmqConsume *pClient)
             rabbitmqFlag = rabbitmq_consume_initial(rabbitmq_conn, channelId, pClient->m_exchangeName, pClient->m_queueName, pClient->m_queueKey);
         }
     } catch (...) {
-        _debug_to(0,("rabbitmq consume thread initial throw exception\n"));
+        _debug_to(loger_rabbitmq, 1, ("rabbitmq consume thread initial throw exception\n"));
     }
     struct timeval timeout = { 0, 500000 }; // 500毫秒
     while (1) {
@@ -450,7 +453,7 @@ void cwRabbitmqConsume::run(cwRabbitmqConsume *pClient)
                         rabbitmqFlag = rabbitmq_consume_initial(rabbitmq_conn, channelId, pClient->m_exchangeName, pClient->m_queueName, pClient->m_queueKey);
                     }
                 } catch (...) {
-                    _debug_to(0,("rabbitmq consume thread initial throw exception\n"));
+                    _debug_to(loger_rabbitmq, 1, ("rabbitmq consume thread initial throw exception\n"));
                 }
                 if (rabbitmqFlag) {
                     interval = 5;
@@ -463,7 +466,7 @@ void cwRabbitmqConsume::run(cwRabbitmqConsume *pClient)
             if (!rabbitmqFlag) {
                 nsShareMemory::semaphore_timedwait(pClient->m_pRun->m_handle, 5000);
                 if (!pClient->m_pRun->m_exitflag) {
-                    _debug_to(0,("rabbitmq recver device thread will exit 1\n"));
+                    _debug_to(loger_rabbitmq, 1, ("rabbitmq recver device thread will exit 1\n"));
                     break; //判断线程是否退出
                 }
                 continue;
@@ -478,7 +481,7 @@ void cwRabbitmqConsume::run(cwRabbitmqConsume *pClient)
 
         if (!pClient->m_pRun->m_exitflag) {
             amqp_destroy_envelope(&envelope);
-            _debug_to(0,("rabbitmq recver device thread will exit\n"));
+            _debug_to(loger_rabbitmq, 1, ("rabbitmq recver device thread will exit\n"));
             break; //判断线程是否退出
         }
 
@@ -498,16 +501,16 @@ void cwRabbitmqConsume::run(cwRabbitmqConsume *pClient)
                 }
             }
 
-            //_debug_to(0,("delivery %u, exchange %.*s routingkey %.*s\n"),
-            //          static_cast<unsigned>(envelope.delivery_tag),
-            //          static_cast<int>(envelope.exchange.len),
-            //          reinterpret_cast<char*>(envelope.exchange.bytes),
-            //          static_cast<int>(envelope.routing_key.len),
-            //          reinterpret_cast<char*>(envelope.routing_key.bytes));
+            _debug_to(loger_rabbitmq, 1, ("delivery %u, exchange %.*s routingkey %.*s\n"),
+                     static_cast<unsigned>(envelope.delivery_tag),
+                     static_cast<int>(envelope.exchange.len),
+                     reinterpret_cast<char*>(envelope.exchange.bytes),
+                     static_cast<int>(envelope.routing_key.len),
+                     reinterpret_cast<char*>(envelope.routing_key.bytes));
 
             if (envelope.message.properties._flags & AMQP_BASIC_CONTENT_TYPE_FLAG) 
             {
-                _debug_to(1,("Content-type: %.*s\n"), static_cast<int>(envelope.message.properties.content_type.len), reinterpret_cast<char *>(envelope.message.properties.content_type.bytes));
+                _debug_to(loger_rabbitmq, 1, ("Content-type: %.*s\n"), static_cast<int>(envelope.message.properties.content_type.len), reinterpret_cast<char *>(envelope.message.properties.content_type.bytes));
             }
 
             std::string routingStr(reinterpret_cast<char *>(envelope.routing_key.bytes), reinterpret_cast<char *>(envelope.routing_key.bytes) + envelope.routing_key.len);
@@ -519,7 +522,7 @@ void cwRabbitmqConsume::run(cwRabbitmqConsume *pClient)
             amqp_basic_ack(rabbitmq_conn, channelId, envelope.delivery_tag, 1);
             amqp_destroy_envelope(&envelope);
         } catch (...) {
-            _debug_to(0,("rabbitmq recver device thread catch...\n"));
+            _debug_to(loger_rabbitmq, 1, ("rabbitmq recver device thread catch...\n"));
         }
     }
 
