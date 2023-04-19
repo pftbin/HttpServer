@@ -1,6 +1,8 @@
 ﻿#pragma once
-//#include "common.h"
-#include "public.h"
+#include <string>
+#include <iostream>
+
+
 #define SHAREMEMORY_COUNT 63
 #define SHAREMEMORY_GUID_LEN 40
 #define SHAREMEMORY_ID_LEN 40
@@ -10,6 +12,8 @@
 #define SHAREMEMORY_MORE_LEN 4080
 //注意：要求是4096的整数倍，这里取的是4096，去掉前面固定的256个字节大小，4096-256
 #define SHAREMEMORY_CONTENT_LEN 3840
+
+
 #ifdef WIN32
 #include <Windows.h>
 #define event_handle HANDLE
@@ -511,9 +515,9 @@ namespace nsShareMemory
                     char * pMemory = reinterpret_cast<char*>(m_Memory.Address());
                     memset(pMemory, 0, m_Size);
                 }
-				std::tstring mutexName = std::tstring(name) + _T("_mutex");
+				std::string mutexName = std::string(name) + ("_mutex");
 				m_Mutex = mutex_create(true, mutexName.c_str());
-				std::tstring notifyName = std::tstring(name) + _T("_notify");
+				std::string notifyName = std::string(name) + ("_notify");
 				m_Notify = semaphore_create(0, notifyName.c_str());
 			}
 			else
@@ -523,9 +527,9 @@ namespace nsShareMemory
 #else
                 m_Ret = m_Memory.Open(static_cast<key_t>(key), true);
 #endif // WIN32
-				std::tstring mutexName = std::tstring(name) + _T("_mutex");
+				std::string mutexName = std::string(name) + ("_mutex");
 				m_Mutex = mutex_open(mutexName.c_str());
-				std::tstring notifyName = std::tstring(name) + _T("_notify");
+				std::string notifyName = std::string(name) + ("_notify");
 				m_Notify = semaphore_open(notifyName.c_str());
 			}
             

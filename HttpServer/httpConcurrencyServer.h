@@ -13,11 +13,9 @@
 #include "event2/thread.h"
 #include "pthread.h"
 
-//custom
-#include "loghelp.h"
-#include "public.h"
-
-
+//
+#include <string>
+#include <iostream>
 
 namespace httpServer
 {
@@ -53,7 +51,7 @@ namespace httpServer
 
 		CRITICAL_SECTION get_CriticalSection;
 
-		std::tstring ipaddr;
+		std::string ipaddr;
 		int port;
 
 		http_cb_Func pFunc;//回调函数指针
@@ -84,7 +82,7 @@ namespace httpServer
 		}
 
 		int start_http_server();
-		int start_http_server(http_cb_Func _pFunc, HWND _mainWindow, int _port, int httpthreads, int nbacklog, std::tstring _ipaddr = _T(""));
+		int start_http_server(http_cb_Func _pFunc, HWND _mainWindow, int _port, int httpthreads, int nbacklog, std::string _ipaddr = (""));
 		void stop_failed_server(int threadcount);
 		void stop_http_server();
 	};
@@ -103,7 +101,6 @@ namespace httpServer
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include "public.h"
 #include "logutilPublic.h"
 namespace httpServer
 {
@@ -134,10 +131,10 @@ namespace httpServer
 		int nfd;
 		int port;
 
-        std::tstring ipaddr;
+        std::string ipaddr;
 
 		int starthttpserver();
-        int start_http_server(http_cb_Func _pFunc, void* _mainWindow, int _port, int httpthreads, int nbacklog, std::tstring _ipaddr = _T(""));
+        int start_http_server(http_cb_Func _pFunc, void* _mainWindow, int _port, int httpthreads, int nbacklog, std::string _ipaddr = (""));
 		void stop_http_server();
 	}complex_httpServer;
 }

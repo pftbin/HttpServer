@@ -1,4 +1,5 @@
 ﻿#include "shareMemory.h"
+#include "public.h"
 
 mmShareMemoryContent::mmShareMemoryContent()
 {
@@ -466,7 +467,7 @@ namespace nsShareMemory
             munmap(hevent, sizeof(event_t));
             try {
                 if (remove(tempPath) != 0) {
-                    printf("event destory error:%s\n", strerror(errno));
+                    _debug_to(1,("event destory error:%s\n"), strerror(errno));
                 }
             } catch (...) {
                 ;
@@ -520,13 +521,13 @@ namespace nsShareMemory
     semaphore_handle semaphore_create(int count, const TCHAR* name)
     {
         if (count < 0) count = 0;
-        std::tstring namestr;
+        std::string namestr;
         if (name == nullptr)
         {
             globalCreateGUID(namestr);
         }
         else {
-            namestr = std::tstring(name);
+            namestr = std::string(name);
         }
         semaphore_handle hsemaphore = sem_open(namestr.c_str(), O_RDWR | O_CREAT, 0644, count);
         return (hsemaphore == SEM_FAILED) ? nullptr : hsemaphore;

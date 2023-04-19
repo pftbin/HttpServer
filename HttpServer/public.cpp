@@ -267,14 +267,14 @@ int globalStrToInt(const LPTSTR valuechar, int defaultvalue, int base)
     return static_cast<int>(val);
 }
 
-void globalSpliteString(const std::tstring& str, std::vector<std::tstring>& strVector, std::tstring splitStr, int maxCount)
+void globalSpliteString(const std::string& str, std::vector<std::string>& strVector, std::string splitStr, int maxCount)
 {
-    std::tstring::size_type pos = 0U;
-    std::tstring::size_type pre = 0U;
-    std::tstring::size_type len = str.length();
-    if (splitStr.empty()) splitStr = _T("|");
-    std::tstring::size_type splitLen = splitStr.length();
-    std::tstring curStr;
+    std::string::size_type pos = 0U;
+    std::string::size_type pre = 0U;
+    std::string::size_type len = str.length();
+    if (splitStr.empty()) splitStr = ("|");
+    std::string::size_type splitLen = splitStr.length();
+    std::string curStr;
     if (maxCount < 1) maxCount = 1;
     do {
         if (static_cast<int>(strVector.size()) >= maxCount - 1) {//如果超过最大个数则不解析最后的分隔字符串，直接将其放在最后一个里面
@@ -287,7 +287,7 @@ void globalSpliteString(const std::tstring& str, std::vector<std::tstring>& strV
             pre = pos + splitLen;
             continue;
         }
-        else if (pos == std::tstring::npos) {
+        else if (pos == std::string::npos) {
             curStr = str.substr(pre, len - pre);
         }
         else {
@@ -295,7 +295,7 @@ void globalSpliteString(const std::tstring& str, std::vector<std::tstring>& strV
             pre = pos + splitLen;
         }
         strVector.push_back(curStr);
-    } while (pos != std::tstring::npos && pos != (len - splitLen));
+    } while (pos != std::string::npos && pos != (len - splitLen));
 }
 
 void globalCreateGUID(std::string& GuidStr)
@@ -396,12 +396,11 @@ std::string getmessageid()
 
 bool is_existfile(std::string& name)
 {
-    if (FILE* file = fopen(name.c_str(), "r"))
-    {
-        fclose(file);
-        return true;
-    }
-    return false;
+#ifdef WIN32
+    return (_taccess(name.c_str(), 0) == 0);
+#else
+    return (access(name.c_str(), 0) == 0);
+#endif
 }
 
 std::string get_file_extension(char* filename)
@@ -422,7 +421,7 @@ char* read_file(const char* filename, long& file_size)
 
     fp = fopen(filename, "rb");
     if (fp == nullptr) {
-        printf("Error opening file %s\n", filename);
+        _debug_to(1,("Error opening file %s\n"), filename);
         return nullptr;
     }
 
@@ -432,7 +431,7 @@ char* read_file(const char* filename, long& file_size)
 
     buffer = (char*)malloc(file_size + 1);
     if (buffer == nullptr) {
-        printf("Error allocating memory for file %s\n", filename);
+        _debug_to(1,("Error allocating memory for file %s\n"), filename);
         return nullptr;
     }
 

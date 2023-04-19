@@ -1,6 +1,5 @@
 //---------------------------------------------------------------------------
 #pragma once
-#include "public.h"
 #include "shareMemory.h"
 #include <boost/thread.hpp>
 #include <boost/bind.hpp>
@@ -13,7 +12,7 @@ namespace nsData
     public:
         boost::thread* m_pThread;
 
-        std::tstring m_handle_name;
+        std::string m_handle_name;
         semaphore_handle m_handle;
 
         bool m_exitflag;
@@ -23,14 +22,21 @@ namespace nsData
         std::list<Key*> m_list;
 
     public:
+
+        static std::string getTimeId()
+        {
+            std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+
+            char buf[100] = { 0 };
+            std::strftime(buf, sizeof(buf), "%Y%m%d%H%M%S", std::localtime(&now));//24
+            return buf;
+        }
+
         cwBaseThread()
         {
-            //globalCreateGUID(m_handle_name);
-            m_handle = nsShareMemory::semaphore_create_noname(0);//nsShareMemory::semaphore_create(0, m_handle_name.c_str());
-            globalCreateGUID(m_mutex_name);
-            std::string m_mutex_name_unic= m_mutex_name;
-            //ansi_to_unicode(m_mutex_name.c_str(), m_mutex_name.length(), m_mutex_name_unic);
-            m_mutex = nsShareMemory::mutex_create(true, m_mutex_name_unic.c_str());
+            m_handle = nsShareMemory::semaphore_create_noname(0);
+            m_mutex_name = getTimeId();
+            m_mutex = nsShareMemory::mutex_create(true, m_mutex_name.c_str());
             m_exitflag = true;
             m_pThread = nullptr;
         }
@@ -80,7 +86,7 @@ namespace nsRabbitmq {
 struct mmRabbitmqData 
 {
     signed __int64 index;//命令的唯一序号
-    std::tstring moreStr;
+    std::string moreStr;
     int moreInt;
     std::string exchange;
     std::string routekey;
@@ -107,12 +113,12 @@ struct mmRabbitmqData
     }
 };
 typedef nsData::cwBaseThread<mmRabbitmqData> cwRabbitmqDealThread;
-typedef void (*send_cb_Func)(mmRabbitmqData *, void *, bool, std::tstring); //发送返回的回调函数指针定义
+typedef void (*send_cb_Func)(mmRabbitmqData *, void *, bool, std::string); //发送返回的回调函数指针定义
 
 class cwRabbitmqPublish 
 {
 public:
-    cwRabbitmqPublish(std::string ip, int port, std::tstring user, std::tstring pwd, send_cb_Func func, void *data);
+    cwRabbitmqPublish(std::string ip, int port, std::string user, std::string pwd, send_cb_Func func, void *data);
     ~cwRabbitmqPublish();
     void send(mmRabbitmqData &data); //发送数据
 public:
@@ -122,8 +128,8 @@ private:
     cwRabbitmqDealThread            *m_pRun;//线程对象
 
     std::string                     m_ip;//rabbitmq的地址
-    std::tstring                    m_user;//访问用户名
-    std::tstring                    m_pwd;//访问密码
+    std::string                    m_user;//访问用户名
+    std::string                    m_pwd;//访问密码
     int                             m_port;//rabbitmq的端口
 
     int                             m_channelId;//通道序号
@@ -131,12 +137,12 @@ private:
     static void run(cwRabbitmqPublish *pClient);
 };
 
-typedef void (*data_cb_Func)(void*, std::tstring, std::tstring); //接收到消息的回调
+typedef void (*data_cb_Func)(void*, std::string, std::string); //接收到消息的回调
 
 class cwRabbitmqConsume 
 {
 public:
-    cwRabbitmqConsume(std::string ip, int port, std::tstring user, std::tstring pwd, std::string queueName, std::string queueKey, std::string exchangeName, data_cb_Func func, void *data);
+    cwRabbitmqConsume(std::string ip, int port, std::string user, std::string pwd, std::string queueName, std::string queueKey, std::string exchangeName, data_cb_Func func, void *data);
     ~cwRabbitmqConsume();
 public:
     void                            *m_pData;//自定义数据指针
@@ -145,8 +151,8 @@ private:
     cwRabbitmqDealThread            *m_pRun;//线程对象
 
     std::string                     m_ip;//rabbitmq的地址
-    std::tstring                    m_user;//访问用户名
-    std::tstring                    m_pwd;//访问密码
+    std::string                    m_user;//访问用户名
+    std::string                    m_pwd;//访问密码
     int                             m_port;//rabbitmq的端口
 
     int                             m_channelId;//通道序号
