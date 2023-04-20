@@ -1,5 +1,28 @@
 #include "logger.h"
 
+#include <direct.h>
+#include <sys/stat.h>
+static bool create_directory(const char* path)
+{
+    struct stat st = { 0 };
+    if (stat(path, &st) == -1)
+    {
+#ifdef _WIN32
+        if (mkdir(path) != 0)
+        {
+            return false;
+        }
+#else
+        if (mkdir(path, 0700) != 0)
+        {
+            return false;
+        }
+#endif
+    }
+
+    return true;
+}
+
 static std::string localtime()
 {
     std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -10,12 +33,21 @@ static std::string localtime()
     return buf;
 }
 
-std::string timeprefix()
+static std::string timefolder()
 {
     std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
     char buf[100] = { 0 };
-    std::strftime(buf, sizeof(buf), "%Y%m%d_%H_%M_%S_", std::localtime(&now));//24
+    std::strftime(buf, sizeof(buf), "%Y%m%d", std::localtime(&now));//24
+    return buf;
+}
+
+static std::string timeprefix()
+{
+    std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+
+    char buf[100] = { 0 };
+    std::strftime(buf, sizeof(buf), "%Y%m%d_%H_%M_%S", std::localtime(&now));//24
     return buf;
 }
 
@@ -23,6 +55,10 @@ FileWriter::FileWriter(const std::string& filename)
     : log_level(0)
     , filename_(timeprefix()+filename)
 {
+    std::string folder = timefolder();
+    if (create_directory(folder.c_str()))
+        filename_ = folder + "/" + filename_;
+
     file_.open(filename_, std::ios::out | std::ios::app);
 }
 
