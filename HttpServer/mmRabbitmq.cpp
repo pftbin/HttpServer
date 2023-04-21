@@ -126,7 +126,7 @@ bool rabbitmq_publish_initial(amqp_connection_state_t rabbitmq_conn, amqp_channe
 bool rabbitmq_consume_initial(amqp_connection_state_t rabbitmq_conn, amqp_channel_t channelId, std::string exchangename, std::string queuename, std::string routkey)
 {
     std::string show_exchangename, show_queuename, show_routkey;
-#ifdef WIN32
+#if defined WIN32
     utf8_to_ansi(exchangename.c_str(), exchangename.length(), show_exchangename);//打印日志时需要anis，转换一下吧
     utf8_to_ansi(queuename.c_str(), queuename.length(), show_queuename);//打印日志时需要anis，转换一下吧
     utf8_to_ansi(routkey.c_str(), routkey.length(), show_routkey);//打印日志时需要anis，转换一下吧
@@ -268,10 +268,10 @@ void cwRabbitmqPublish::run(cwRabbitmqPublish *pClient)
             if (std::chrono::duration<double>(curSendTime - preSendTime).count() >= 10) {
                 preSendTime = curSendTime;
                 mmRabbitmqData *pData = new mmRabbitmqData();
-                //pData->exchange = ("sdn.agent.paramchange");
                 pData->exchange = ("sdn.agent.heartbeat");//发送心跳的交换机和正常用的交换机区分开
                 std::string routekey = "heartbeat.agent.";
-                pData->routekey = routekey + guidStr;
+                pData->routekey = routekey + guidStr;//正式使用，用GUID避免routekey重复产生错误
+                //pData->routekey = "heartbeat.agent.test";//测试时使用，网页上查看消息是否成功发送
                 pData->commandVector.push_back("heartbeat.agent");
                 list.push_back(pData);
             }
@@ -398,7 +398,7 @@ cwRabbitmqConsume::cwRabbitmqConsume(std::string ip, int port, std::string user,
     m_pwd = pwd;
     m_pFunc = func;
     m_pData = data;
-#ifdef WIN32
+#if defined WIN32
     ansi_to_utf8(queueName.c_str(), queueName.length(), m_queueName);//rabbitmq只支持utf-8，所以要转换
     ansi_to_utf8(queueKey.c_str(), queueKey.length(), m_queueKey);//rabbitmq只支持utf-8，所以要转换
     ansi_to_utf8(exchangeName.c_str(), exchangeName.length(), m_exchangeName);//rabbitmq只支持utf-8，所以要转换

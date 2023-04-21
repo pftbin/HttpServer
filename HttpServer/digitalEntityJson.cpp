@@ -1,13 +1,5 @@
 #include "digitalEntityJson.h"
 
-#ifndef WIN32
-#define _stricmp strcasecmp
-#endif
-
-#ifdef _MSC_VER
-#define snprintf sprintf_s
-#endif
-
 #define BUFF_SZ			1024*16		//system max stack size
 
 #define DF_IMAGE_USEKEYDATA		0

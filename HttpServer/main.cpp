@@ -20,7 +20,6 @@
 #pragma comment(lib,"libevent.lib")
 #pragma comment(lib,"libevent_core.lib")
 #pragma comment(lib,"libevent_extras.lib")
-#pragma comment(lib,"pthreadVC2.lib")
 
 //
 #pragma comment(lib,"ws2_32.lib")
@@ -46,14 +45,14 @@
 #define PNP_HEARTBEAT				3
 #define PNP_MOSMESSAGE				4
 
-#ifdef WIN32
+#if defined WIN32
 #define COMMON_STRCPY(x, y, z) strcpy_s(x, z, y)
 #else
 #define COMMON_STRCPY(x, y, z) strncpy(x, y, z);
 #endif
 
 //sleep function
-#ifdef _WIN32
+#if defined WIN32
     #include <windows.h>
 
     void sleep(unsigned milliseconds)
@@ -70,7 +69,7 @@
 #endif
 
 //get exe path 
-#if defined _WIN32
+#if defined WIN32
 	#include <direct.h>
 	std::string getexepath()
 	{
@@ -2319,7 +2318,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				delete[]tempchar;
 			}
 
-#ifdef WIN32
+#if defined WIN32
 			utf8_to_ansi(bodyStr.c_str(), bodyStr.length(), httpReqBodyStr_ansi);
 #else
 			httpReqBodyStr_ansi = bodyStr;
@@ -2796,7 +2795,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 		{
 			//return string to html
 ////////////////////////////////////////////////////////////////////////////////////////////////
-#ifdef WIN32//这里进行了修改，只有WINDOWS下需要转化，linux下直接认为是UTF8编码
+#if defined WIN32//这里进行了修改，只有WINDOWS下需要转化，linux下直接认为是UTF8编码
 			ansi_to_utf8(httpRetStr_ansi.c_str(), httpRetStr_ansi.length(), httpRetStr_utf8);
 #else
 			httpRetStr_utf8 = httpRetStr_ansi;

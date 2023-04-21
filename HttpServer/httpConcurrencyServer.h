@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef WIN32  //SYS-WIN32
+#if defined WIN32  //SYS-WIN32
 
 #define HAVE_STRUCT_TIMESPEC
 #include <WinSock2.h>

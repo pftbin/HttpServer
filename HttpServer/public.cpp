@@ -3,7 +3,7 @@
 //
 void unicode_to_utf8(const wchar_t* in, size_t len, std::string& out)
 {
-#ifdef WIN32
+#if defined WIN32
     int out_len = ::WideCharToMultiByte(CP_UTF8, 0, in, static_cast<int>(len), nullptr, 0, nullptr, nullptr);
     if (out_len > 0) {
         char* lpBuf = new char[static_cast<unsigned int>(out_len + 1)];
@@ -35,7 +35,7 @@ void unicode_to_utf8(const wchar_t* in, size_t len, std::string& out)
 
 void utf8_to_unicode(const char* in, size_t len, std::wstring& out)
 {
-#ifdef WIN32
+#if defined WIN32
     int out_len = ::MultiByteToWideChar(CP_UTF8, 0, in, static_cast<int>(len), nullptr, 0);
     if (out_len > 0) {
         wchar_t* lpBuf = new wchar_t[static_cast<unsigned int>(out_len + 1)];
@@ -66,7 +66,7 @@ void utf8_to_unicode(const char* in, size_t len, std::wstring& out)
 
 void ansi_to_unicode(const char* in, size_t len, std::wstring& out)
 {
-#ifdef WIN32
+#if defined WIN32
     int out_len = ::MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, in, static_cast<int>(len), nullptr, 0);
     if (out_len > 0) {
         wchar_t* lpBuf = new wchar_t[static_cast<unsigned int>(out_len + 1)];
@@ -104,7 +104,7 @@ void ansi_to_unicode(const char* in, size_t len, std::wstring& out)
 
 void unicode_to_ansi(const wchar_t* in, size_t len, std::string& out)
 {
-#ifdef WIN32
+#if defined WIN32
     int out_len = ::WideCharToMultiByte(CP_ACP, 0, in, static_cast<int>(len), nullptr, 0, nullptr, nullptr);
     if (out_len > 0) {
         char* lpBuf = new char[static_cast<unsigned int>(out_len + 1)];
@@ -140,7 +140,7 @@ void unicode_to_ansi(const wchar_t* in, size_t len, std::string& out)
 
 void ansi_to_utf8(const char* in, size_t len, std::string& out)
 {
-#ifdef WIN32
+#if defined WIN32
     std::wstring strUnicode;
     ansi_to_unicode(in, len, strUnicode);
     return unicode_to_utf8(strUnicode.c_str(), strUnicode.length(), out);
@@ -160,7 +160,7 @@ void ansi_to_utf8(const char* in, size_t len, std::string& out)
 
 void utf8_to_ansi(const char* in, size_t len, std::string& out)
 {
-#ifdef WIN32
+#if defined WIN32
     std::wstring strUnicode;
     utf8_to_unicode(in, len, strUnicode);
     return unicode_to_ansi(strUnicode.c_str(), strUnicode.length(), out);
@@ -396,7 +396,7 @@ std::string getmessageid()
 
 bool is_existfile(std::string& name)
 {
-#ifdef WIN32
+#if defined WIN32
     return (_taccess(name.c_str(), 0) == 0);
 #else
     return (access(name.c_str(), 0) == 0);

@@ -7,7 +7,7 @@ static bool create_directory(const char* path)
     struct stat st = { 0 };
     if (stat(path, &st) == -1)
     {
-#ifdef _WIN32
+#if defined WIN32
         if (mkdir(path) != 0)
         {
             return false;

@@ -29,7 +29,7 @@ static bool globalIsIPStringValid(std::string IPString)
 		return false;
 }
 
-#ifdef WIN32  //SYS-WIN32
+#if defined WIN32  //SYS-WIN32
 
 #pragma comment(lib,"pthreadVC2.lib")
 namespace httpServer
@@ -141,7 +141,7 @@ namespace httpServer
 		//http_checkEvent[0] = ::CreateEvent(NULL, true, false, NULL);
 		//http_checkEvent[1] = ::CreateEvent(NULL, true, false, NULL);
 
-#ifdef WIN32
+#if defined WIN32
 		init_win_socket();//初始化winsock服务
 #endif
 		if (nthreads > 0)

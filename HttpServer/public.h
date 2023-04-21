@@ -9,7 +9,7 @@
 #include <vector>
 #include <list>
 
-#ifdef WIN32
+#if defined WIN32
 #include <io.h>
 #include <windows.h>
 #include <wchar.h>

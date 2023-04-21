@@ -58,7 +58,7 @@ mmShareMemoryBuf::~mmShareMemoryBuf()
 mmShareMemoryBuf& mmShareMemoryBuf::operator = (const mmShareMemoryBuf& t)
 {
     m_Pos = t.m_Pos;
-#ifdef WIN32
+#if defined WIN32
     strncpy_s(m_Guid, SHAREMEMORY_GUID_LEN, t.m_Guid, SHAREMEMORY_GUID_LEN - 1);
     strncpy_s(m_Id, SHAREMEMORY_ID_LEN, t.m_Guid, SHAREMEMORY_ID_LEN - 1);
     strncpy_s(m_Type, SHAREMEMORY_TYPE_LEN, t.m_Type, SHAREMEMORY_TYPE_LEN - 1);
@@ -87,7 +87,7 @@ mmShareMemoryInfo::mmShareMemoryInfo()
     memset(m_More, 0, sizeof(char) * SHAREMEMORY_MORE_LEN);
 }
 
-#ifdef WIN32
+#if defined WIN32
 #include <iostream>
 namespace nsShareMemory
 {

@@ -11,18 +11,6 @@
 #include <stack>
 #include <cerrno>
 
-//#ifndef WIN32
-//#define _stricmp strcasecmp
-//#endif
-
-//x64
-#define _stricmp stricmp 
-#pragma warning(disable:4996)
-
-#ifdef _MSC_VER
-#define snprintf sprintf_s
-#endif
-
 using namespace json;
 
 namespace json

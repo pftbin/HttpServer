@@ -14,7 +14,7 @@
 #define SHAREMEMORY_CONTENT_LEN 3840
 
 
-#ifdef WIN32
+#if defined WIN32
 #include <Windows.h>
 #define event_handle HANDLE
 #define mutex_handle HANDLE
@@ -114,7 +114,7 @@ namespace nsShareMemory
 
     ///////////////////////////////////////等待多个事件量的处理///////////////////////////////////////
 
-/*#ifdef WIN32
+/*#if defined WIN32
     class cwMultiEvent
     {
     private:
@@ -213,7 +213,7 @@ namespace nsShareMemory
 #endif*/
     ////
 
-#ifdef WIN32
+#if defined WIN32
 	template< typename KeyT > class CShareMem_WinX
 	{
 	public:
@@ -503,7 +503,7 @@ namespace nsShareMemory
             m_Key = key;
 			if (Flag)
 			{               
-#ifdef WIN32
+#if defined WIN32
 				m_Memory.Remove(name);
                 m_Ret = m_Memory.Create(name, m_Size);
 #else
@@ -522,7 +522,7 @@ namespace nsShareMemory
 			}
 			else
 			{               
-#ifdef WIN32
+#if defined WIN32
                 m_Ret = m_Memory.Open(name, true);
 #else
                 m_Ret = m_Memory.Open(static_cast<key_t>(key), true);
