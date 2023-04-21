@@ -7,16 +7,21 @@
 #include <iostream>
 
 #include "event.h"
-#include "evhttp.h"
-#include "event2/http.h"
 #include "event2/event.h"
 #include "event2/buffer.h"
 #include "event2/bufferevent.h"
+#include "event2/buffer_compat.h"
 #include "event2/bufferevent_compat.h"
+#include "evhttp.h"
+#include "event2/http.h"
 #include "event2/http_struct.h"
-#include "event2/http_compat.h"
+#include "event2/keyvalq_struct.h"
 #include "event2/util.h"
 #include "event2/listener.h"
+#include "event2/thread.h"
+#define HAVE_STRUCT_TIMESPEC
+#include <pthread.h>
+
 #pragma comment(lib,"libevent.lib")
 #pragma comment(lib,"libevent_core.lib")
 #pragma comment(lib,"libevent_extras.lib")
@@ -2838,43 +2843,44 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 		_debug_to( 1, ("\nhttp server handler throw exception\n"));
 	}
 }
+#endif
 
 int main()
 {
-	std::string configpath = getexepath(); 
-	configpath = str_replace(configpath, std::string("\\"), std::string("/"));configpath += "/config.txt";
-	_debug_to( 0, ("COFIG PATH=%s\n"), configpath.c_str());
+	std::string configpath = getexepath();
+	configpath = str_replace(configpath, std::string("\\"), std::string("/")); configpath += "/config.txt";
+	_debug_to(0, ("COFIG PATH=%s\n"), configpath.c_str());
 	if (!getconfig_global(configpath))
 	{
-		_debug_to( 1, ("GLOBAL config load failed,please check <config.txt> \n"));
+		_debug_to(1, ("GLOBAL config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 
 	if (!digitalmysql::getmysqlconfig(configpath))
 	{
-		_debug_to( 1, ("MYSQL config load failed,please check <config.txt> \n"));
+		_debug_to(1, ("MYSQL config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 	if (!getconfig_actornode(configpath))
 	{
-		_debug_to( 1, ("ACTOR config load failed,please check <config.txt> \n"));
+		_debug_to(1, ("ACTOR config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 	if (!getconfig_playnode(configpath))
 	{
-		_debug_to( 1, ("PLAYNODE config load failed,please check <config.txt> \n"));
+		_debug_to(1, ("PLAYNODE config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 
 	if (!getconfig_digitvideopath(configpath))
 	{
-		_debug_to( 1, ("DIGITVIDEO config load failed,please check <config.txt> \n"));
+		_debug_to(1, ("DIGITVIDEO config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 
 	if (!getconfig_rabbitmq(configpath))
 	{
-		_debug_to( 1, ("RABBITMQ config load failed,please check <config.txt> \n"));
+		_debug_to(1, ("RABBITMQ config load failed,please check <config.txt> \n"));
 		getchar();
 	}
 	g_RabbitmqSender = new nsRabbitmq::cwRabbitmqPublish(rabbitmq_ip, rabbitmq_port, rabbitmq_user, rabbitmq_passwd, nullptr, nullptr);
@@ -2885,25 +2891,25 @@ int main()
 	int httpPort = 8081;//监听端口
 	int threadCount = 10;//开启线程池个数
 	int ret = server.start_http_server(global_http_generic_handler, nullptr, httpPort, threadCount, 10240);//开启监听
-	if (ret < 0) 
+	if (ret < 0)
 	{
-		_debug_to( 1, ("start_http_server failed\n"));
+		_debug_to(1, ("start_http_server failed\n"));
 	}
 	else {
-		_debug_to( 1, ("start_http_server success\n"));
+		_debug_to(1, ("start_http_server success\n"));
 	}
 
-    //初始化Actor容器
+	//初始化Actor容器
 	pthread_mutex_init(&mutex_actorinfo, NULL);
 	pthread_mutex_init(&mutex_mergetaskinfo, NULL);
-	_debug_to( 1, ("Container_actornode size = %d\n"), Container_actornode.size());
+	_debug_to(1, ("Container_actornode size = %d\n"), Container_actornode.size());
 	ACTORNODE_MAP::iterator itActorNode = Container_actornode.begin();
 	for (itActorNode; itActorNode != Container_actornode.end(); ++itActorNode)
 	{
 		std::string ip = itActorNode->second.ip;
 		short port = itActorNode->second.port;
 
-		if (!ip.empty() && port!=0)
+		if (!ip.empty() && port != 0)
 		{
 			actorinfo actoritem;
 			actoritem.ip = ip;
@@ -2916,26 +2922,26 @@ int main()
 		}
 	}
 
-    //开启Actor状态更新线程
-    ret = pthread_create(&threadid_updateactorinfo, nullptr, pthread_updateactorinfo, nullptr);
-    if (ret != 0)
-    {
-		_debug_to( 1, ("thread_updateactorinfo create error\n"));
-    }
-    else
-    {
-		_debug_to( 1, ("thread_updateactorinfo is runing\n"));
-    }
-
-    //开启合成任务分配线程
-	ret = pthread_create(&threadid_runtask_thread, nullptr, pthread_runtask_thread, nullptr);
+	//开启Actor状态更新线程
+	ret = pthread_create(&threadid_updateactorinfo, nullptr, pthread_updateactorinfo, nullptr);
 	if (ret != 0)
 	{
-		_debug_to( 1, ("thread_assigntask create error\n"));
+		_debug_to(1, ("thread_updateactorinfo create error\n"));
 	}
 	else
 	{
-		_debug_to( 1, ("thread_assigntask is runing\n"));
+		_debug_to(1, ("thread_updateactorinfo is runing\n"));
+	}
+
+	//开启合成任务分配线程
+	ret = pthread_create(&threadid_runtask_thread, nullptr, pthread_runtask_thread, nullptr);
+	if (ret != 0)
+	{
+		_debug_to(1, ("thread_assigntask create error\n"));
+	}
+	else
+	{
+		_debug_to(1, ("thread_assigntask is runing\n"));
 	}
 
 #if DF_OPEN_PATCH_GET
@@ -2944,11 +2950,11 @@ int main()
 	ret = pthread_create(&threadid_patchdata, nullptr, pthread_patchdata, nullptr);
 	if (ret != 0)
 	{
-		_debug_to( 1, ("thread_patchdata create error\n"));
+		_debug_to(1, ("thread_patchdata create error\n"));
 	}
 	else
 	{
-		_debug_to( 1, ("thread_patchdata is runing\n"));
+		_debug_to(1, ("thread_patchdata is runing\n"));
 	}
 
 	//开启资产获取线程
@@ -2956,30 +2962,29 @@ int main()
 	ret = pthread_create(&threadid_getdata, nullptr, pthread_getdata, nullptr);
 	if (ret != 0)
 	{
-		_debug_to( 1, ("thread_getdata create error\n"));
+		_debug_to(1, ("thread_getdata create error\n"));
 	}
 	else
 	{
-		_debug_to( 1, ("thread_getdata is runing\n"));
-	}
+		_debug_to(1, ("thread_getdata is runing\n"));
+}
 #endif
 
 	//keep runing
 	while (1)
 	{
-		char ch[256] = {0};
-		_debug_to( 1, ("输入'Q'或‘q’退出程序:\n"));
+		char ch[256] = { 0 };
+		_debug_to(1, ("输入'Q'或‘q’退出程序:\n"));
 		gets_s(ch, 255);
 		std::string str; str = ch;
-		if (str.compare("Q")==0 || str.compare("q")==0)
+		if (str.compare("Q") == 0 || str.compare("q") == 0)
 		{
 			//结束http监听
 			server.stop_http_server();
 			break;
-		}	
+		}
 	}
 }
-#endif
 
 
 
