@@ -10,11 +10,8 @@ static FileWriter loger_httpserver("httpserver.log");
 static bool globalIsIPStringValid(std::string IPString)
 {
 	std::string strIpAddr;
-#if defined(UNICODE) || defined(_UNICODE)
-	unicode_to_ansi(IPString.c_str(), IPString.length(), strIpAddr);
-#else
 	strIpAddr = IPString;
-#endif
+
 	std::vector<std::string> ipVector;
 	globalSpliteString(IPString, ipVector, ("."));
 	if (ipVector.size() != 4U) return false;
@@ -255,12 +252,9 @@ namespace httpServer
 		}
 		pFunc = _pFunc;
 		mainWindow = _mainWindow;
-		std::string http_addr;
-#if defined(UNICODE) || defined(_UNICODE)
-        unicode_to_ansi(ipaddr.c_str(), ipaddr.length(), http_addr);
-#else	
+		std::string http_addr;	
 		http_addr = ipaddr;
-#endif
+
 		if (start_http_server() == 0)
 			return 0;
 		else return -1;

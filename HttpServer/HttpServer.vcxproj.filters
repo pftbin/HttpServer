@@ -28,6 +28,9 @@
     <Filter Include="源文件\Rabbitmq">
       <UniqueIdentifier>{6690c4c4-c1be-4583-b0f3-ad79a4c1a868}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\OpenCV">
+      <UniqueIdentifier>{701beb9a-e2f7-4f43-aa32-7a038da02e5a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -60,6 +63,9 @@
     <ClCompile Include="shareMemory.cpp">
       <Filter>源文件\Rabbitmq</Filter>
     </ClCompile>
+    <ClCompile Include="videoOperate.cpp">
+      <Filter>源文件\OpenCV</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="digitalEntityJson.h">
@@ -91,6 +97,9 @@
     </ClInclude>
     <ClInclude Include="shareMemory.h">
       <Filter>源文件\Rabbitmq</Filter>
+    </ClInclude>
+    <ClInclude Include="videoOperate.h">
+      <Filter>源文件\OpenCV</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -467,7 +467,7 @@ namespace nsShareMemory
             munmap(hevent, sizeof(event_t));
             try {
                 if (remove(tempPath) != 0) {
-                    _debug_to( 1, ("event destory error:%s\n"), strerror(errno));
+                    _debug_to(1, ("event destory error:%s\n"), strerror(errno));
                 }
             } catch (...) {
                 ;

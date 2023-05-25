@@ -183,26 +183,7 @@ int globalStrToIntDef(const LPTSTR valuechar, int& value, int defaultvalue, int 
 {
     if (base < 2 || base > 16) base = 10;
     value = defaultvalue;
-#if defined(UNICODE) || defined(_UNICODE)
-    wchar_t* endptr;
-    errno = 0;
-    long val = wcstol(valuechar, &endptr, base);
-    if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) || (errno != 0 && val == 0))
-    {
-        return -1;
-    }
 
-    if (endptr == valuechar)//没有找到有效的字符
-    {
-        return -1;
-    }
-    if (*endptr != '\0')
-    {
-        //value = (int)val;
-        //return 0;
-        return -1;
-    }
-#else
     char* endptr;
     errno = 0;
     long val = strtol(valuechar, &endptr, base);
@@ -221,7 +202,7 @@ int globalStrToIntDef(const LPTSTR valuechar, int& value, int defaultvalue, int 
         //return 0;
         return -1;
     }
-#endif
+
     value = static_cast<int>(val);//(int)val;
     return 1;
 }
@@ -229,24 +210,7 @@ int globalStrToIntDef(const LPTSTR valuechar, int& value, int defaultvalue, int 
 int globalStrToInt(const LPTSTR valuechar, int defaultvalue, int base)
 {
     if (base < 2 || base > 16) base = 10;
-#if defined(UNICODE) || defined(_UNICODE)
-    wchar_t* endptr;
-    errno = 0;
-    long val = wcstol(valuechar, &endptr, base);
-    if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) || (errno != 0 && val == 0))
-    {
-        return defaultvalue;
-    }
 
-    if (endptr == valuechar)//没有找到有效的字符
-    {
-        return defaultvalue;
-    }
-    if (*endptr != '\0')
-    {
-        return defaultvalue;
-    }
-#else
     char* endptr;
     errno = 0;
     long val = strtol(valuechar, &endptr, base);
@@ -263,7 +227,7 @@ int globalStrToInt(const LPTSTR valuechar, int defaultvalue, int base)
     {
         return -1;
     }
-#endif
+
     return static_cast<int>(val);
 }
 
@@ -334,8 +298,19 @@ unsigned short Checksum(const unsigned short* buf, int size)
     return (unsigned short)~sum;
 }
 
+bool str_existsubstr(std::string str, std::string substr)
+{
+    if (str.find(substr) != std::string::npos) {
+        return true;
+    }
+    return false;
+}
+
 std::string str_replace(std::string str, std::string old, std::string now)
 {
+    if (str.empty())
+        return "";
+
     int oldPos = 0;
     while (str.find(old, oldPos) != -1)
     {
@@ -366,6 +341,40 @@ std::string getnodevalue(std::string info, std::string nodename)
     return result;
 }
 
+std::string getDispositionValue(const std::string source, int pos, const std::string name)
+{
+    //头部内容：Content-Disposition: form-data; name="projectName"
+    //构建模式串
+    std::string pattern = " " + name + "=";
+    int i = source.find(pattern, pos);
+    //更换格式继续查找位置
+    if (i < 0) {
+        pattern = ";" + name + "=";
+        i = source.find(pattern, pos);
+    }
+    if (i < 0) {
+        pattern = name + "=";
+        i = source.find(pattern, pos);
+    }
+    //尝试了可能的字符串，还没有找到，返回空字符串        
+    if (i < 0) { return std::string(); }
+
+    i += pattern.size();
+    if (source[i] == '\"') {
+        ++i;
+        int j = source.find('\"', i);
+        if (j < 0 || i == j) { return std::string(); }
+        return source.substr(i, j - i);
+    }
+    else {
+        int j = source.find(";", i);
+        if (j < 0) { j = source.size(); }
+        auto value = source.substr(i, j - i);
+        //去掉前后的空白字符
+        return trim(value);
+    }
+}
+
 std::string gettimecode()
 {
     std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -394,13 +403,108 @@ std::string getmessageid()
     return buf;
 }
 
-bool is_existfile(std::string& name)
+bool is_existfile(const char* filename)
 {
 #if defined WIN32
-    return (_taccess(name.c_str(), 0) == 0);
+    return (_taccess(filename, 0) == 0);
 #else
-    return (access(name.c_str(), 0) == 0);
+    return (access(filename, 0) == 0);
 #endif
+}
+
+bool is_imagefile(const char* filename)
+{
+    FILE* fp = fopen(filename, "rb");
+    if (!fp) 
+        return false;
+  
+    unsigned char buf[8];
+    fread(buf, 1, 8, fp);  // read header
+    fclose(fp);
+
+    if (memcmp(buf, "\xFF\xD8\xFF", 3) == 0) {  
+        // JPEG
+        return true;
+    }
+    if (memcmp(buf, "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", 8) == 0) {  
+        // PNG
+        return true;
+    }
+    if (memcmp(buf, "\x47\x49\x46\x38\x37\x61", 6) == 0 || memcmp(buf, "\x47\x49\x46\x38\x39\x61", 6) == 0) {  
+        // GIF
+        return true;
+    }
+    if (memcmp(buf, "\x42\x4D", 2) == 0) {  
+        // BMP
+        return true;
+    }
+
+    return false;
+}
+
+bool is_videofile(const char* filename)
+{
+    FILE* fp = fopen(filename, "rb");
+    if (!fp)
+        return false;
+    
+    unsigned char buf[4];
+    fread(buf, 1, 4, fp); // read header
+    fclose(fp);
+
+    if (buf[0] == 0x00 && buf[1] == 0x00 && buf[2] == 0x01 && buf[3] == 0xba) {
+        return true; // MPEG
+    }
+    if (buf[0] == 0x00 && buf[1] == 0x00 && buf[2] == 0x01 && buf[3] == 0xb3) {
+        return true; // MPEG-2
+    }
+    if (buf[0] == 0x00 && buf[1] == 0x00 && buf[2] == 0x01 && buf[3] == 0xb6) {
+        return true; // MPEG-2
+    }
+    if (buf[0] == 0x00 && buf[1] == 0x00 && buf[2] == 0x01 && buf[3] == 0xe0) {
+        return true; // MPEG-1
+    }
+    if (buf[0] == 0x52 && buf[1] == 0x49 && buf[2] == 0x46 && buf[3] == 0x46) {
+        return true; // AVI
+    }
+    if (buf[0] == 0x00 && buf[1] == 0x00 && buf[2] == 0x00 && buf[3] == 0x1c) {
+        return true; // QuickTime
+    }
+    if (buf[0] == 0x00 && buf[1] == 0x00 && buf[2] == 0x00 && buf[3] == 0x20) {
+        return true; // MP4
+    }
+
+    return false;
+}
+
+bool is_audiofile(const char* filename)
+{
+    FILE* fp = fopen(filename, "rb");
+    if (!fp)
+        return false;
+
+    unsigned char buf[4];
+    fread(buf, 1, 4, fp); // read header
+    fclose(fp);
+
+    if (buf[0] == 'R' && buf[1] == 'I' && buf[2] == 'F' && buf[3] == 'F') {
+        // WAV audio file
+        return true;
+    }
+    else if (buf[0] == 'I' && buf[1] == 'D' && buf[2] == '3') {
+        // MP3 audio file
+        return true;
+    }
+    else if (buf[0] == 'O' && buf[1] == 'g' && buf[2] == 'g' && buf[3] == 'S') {
+        // OGG audio file
+        return true;
+    }
+    else {
+        // Not an audio file
+        return false;
+    }
+
+    return false;
 }
 
 std::string get_file_extension(char* filename)
@@ -414,32 +518,50 @@ std::string get_file_extension(char* filename)
     return ret_str;
 }
 
-char* read_file(const char* filename, long& file_size)
+bool read_file(const char* filename, char*& file_buff, long& file_size)
 {
-    FILE* fp;
-    char* buffer = nullptr;
+    if (filename == nullptr)
+        return false;
 
+    FILE* fp = nullptr;
     fp = fopen(filename, "rb");
     if (fp == nullptr) {
-        _debug_to(loger_public, 1, ("Error opening file %s\n"), filename);
-        return nullptr;
+        return false;
     }
 
     fseek(fp, 0, SEEK_END);
     file_size = ftell(fp);
     rewind(fp);
 
-    buffer = (char*)malloc(file_size + 1);
-    if (buffer == nullptr) {
-        _debug_to(loger_public, 1, ("Error allocating memory for file %s\n"), filename);
-        return nullptr;
+    file_buff = (char*)malloc(file_size + 1);
+    if (file_buff == nullptr) {
+        return false;
     }
 
-    fread(buffer, file_size, 1, fp);
+    fread(file_buff, file_size, 1, fp);
+    fclose(fp);
+    file_buff[file_size] = '\0';
+
+    return true;
+}
+
+bool write_file(const char* filename, char* file_buff, long file_size)
+{
+    if (filename == nullptr)
+        return false;
+    if (file_buff == nullptr || file_size<= 0)
+        return false;
+
+    FILE* fp = nullptr;
+    fp = fopen(filename, "wb");
+    if (fp == nullptr) {
+        return false;
+    }
+
+    fwrite(file_buff, sizeof(char), file_size, fp);
     fclose(fp);
 
-    buffer[file_size] = '\0';
-    return buffer;
+    return true;
 }
 
 

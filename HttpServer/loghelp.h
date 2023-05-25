@@ -18,10 +18,12 @@ void printf_tofile(int level, const char* format, Args... args)
     delete[] buf;
 
     std::string loginfo = std::move(str);
-    writeToFile(loger_main, level, loginfo);
+    char backchar = loginfo[strlen(loginfo.c_str()) - 1];
+    if (backchar != '\n') loginfo += "\n";
 
+    writeToFile(loger_main, level, loginfo);
     if (level >= 1)
-        std::cout << loginfo << std::endl;
+        std::cout << loginfo;
 }
 
 //
@@ -40,10 +42,12 @@ void printf_tofile(FileWriter& loger, int level, const char* format, Args... arg
     delete[] buf;
 
     std::string loginfo = std::move(str);
-    writeToFile(loger, level, loginfo);
+    char backchar = loginfo[strlen(loginfo.c_str()) - 1];
+    if (backchar != '\n') loginfo += "\n";
 
+    writeToFile(loger, level, loginfo);
     if (level >= 1)
-        std::cout << loginfo << std::endl;
+        std::cout << loginfo;
 }
 
 

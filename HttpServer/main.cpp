@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
+#include <vector>
+#include <set>
 
 #include "event.h"
 #include "event2/event.h"
@@ -33,6 +35,7 @@
 #include "public.h"
 #include "json.h"
 #include "httpkit.h"
+#include "videoOperate.h"
 #include "mmRabbitmq.h"
 #include "digitalmysql.h"
 #include "digitalEntityJson.h"
@@ -40,6 +43,8 @@
 
 
 
+#define CHECK_EMPTY_STR(name,str,msg,result) {if(str.empty()){msg=std::string(name)+" is empty,please check request body";result=false;}}
+#define CHECK_EMPTY_NUM(name,num,msg,result) {if(num==0){msg=std::string(name)+" = 0,please check request body";result=false;}}
 
 
 #define BUFF_SZ 1024*16  //system max stack size
@@ -106,6 +111,88 @@
 	}
 #endif
 
+//create folder
+#include <iostream>
+#include <cstdlib>
+#ifdef _WIN32
+#include <direct.h>
+#define mkdir(x,y) _mkdir(x)
+bool create_directory(const char* path) 
+{
+	int status = 0;
+	status = mkdir(path);
+	if (status == 0) 
+	{
+		std::cout << "Directory created at " << path << std::endl;
+		return true;
+	}
+	else 
+	{
+		std::cerr << "Unable to create directory at " << path << std::endl;
+		return false;
+	}
+}
+bool folderExists(const char* folderPath) {
+	DWORD attributes = GetFileAttributesA(folderPath);
+	return (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY));
+}
+
+#else
+
+#include <sys/stat.h>
+bool create_directory(const char* path) 
+{
+	int status = 0;
+	status = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	if (status == 0) 
+	{
+		std::cout << "Directory created at " << path << std::endl;
+		return true;
+	}
+	else 
+	{
+		std::cerr << "Unable to create directory at " << path << std::endl;
+		return false;
+	}
+}
+bool folderExists(const char* folderPath) {
+	struct stat info;
+	if (stat(folderPath, &info) != 0) {
+		return false;
+	}
+	return (info.st_mode & S_IFDIR);
+}
+
+#endif
+bool create_directories(const char* path) 
+{
+	if (folderExists(path))//create exist folder will false
+		return true;
+	std::string total_path = path;
+	if (total_path.find(':') == std::string::npos)//must absolute path
+		return false;
+	
+	std::string current_path = "";
+	std::string delimiter = "/";
+	size_t pos = 0;
+	std::string token;
+
+	int ntimes = 0;
+	while ((pos = total_path.find(delimiter)) != std::string::npos) 
+	{
+		token = total_path.substr(0, pos);
+		current_path += token + delimiter;
+		if (current_path.length() > 3 && !folderExists(current_path.c_str()))//a= D:/ not need create,b=create exist folder will false
+			create_directory(current_path.c_str());
+		total_path.erase(0, pos + delimiter.length());
+
+		if (++ntimes > 10)//keep right
+			break;
+	}
+
+	return create_directory(path);
+}
+
 
 #define DF_OPEN_PATCH_GET  0
 #if DF_OPEN_PATCH_GET //数字人资产
@@ -131,7 +218,7 @@ std::string getjson_conditionsearch(std::string contentid = "")
 	std::string sRetJson = test.writeJson();
 	return sRetJson;
 }
-std::string getjson_humanlistinfo(std::string contentid = "", int history = 0)
+std::string getjson_humanlistinfo(std::string contentid = "")
 {
 	//
 	std::string name = "ys";
@@ -306,7 +393,7 @@ std::string getjson_humanlistinfo(std::string contentid = "", int history = 0)
 											std::map<std::string, std::string>::iterator itcontentId_ = mapfieldvalue.find("contentId_");
 											if (itcontentId_ != mapfieldvalue.end())
 											{
-												result_item.VirtualmanKey = itcontentId_->second;
+												result_item.HumanID = itcontentId_->second;
 											}
 											//
 											std::map<std::string, std::string>::iterator itname_ = mapfieldvalue.find("name_");
@@ -325,7 +412,7 @@ std::string getjson_humanlistinfo(std::string contentid = "", int history = 0)
 												unsigned int width = 0, height = 0, bitcount = 32;
 												std::string filepath = "C:\\TEMP"; filepath += format;
 												httpkit::httprequest_download((char*)downloadurl.c_str(), (char*)filepath.c_str());
-												if (is_existfile(filepath))
+												if (is_existfile(filepath.c_str()))
 												{
 													picture::GetPicInfomation(filepath.c_str(), &width, &height, &bitcount, format);
 													//base64_encode = base64::base64_encode_file(filepath);
@@ -350,19 +437,6 @@ std::string getjson_humanlistinfo(std::string contentid = "", int history = 0)
 
 					//code==200,end
 				}
-			}
-		}
-		if (history)
-		{
-			//result_item add human data from database
-			for (int i = 0; i < (int)result_object.vecDigitManItems.size(); ++i)
-			{
-				//need add , at first
-				std::string humandata = ", \"HumanData\":[ ]";
-
-				//......
-
-				result_object.vecDigitManItems[i].vecDigitManTaskObj.push_back(humandata);
 			}
 		}
 
@@ -885,9 +959,9 @@ void* pthread_getdata(void* arg)
 }
 #endif
 
-#if 1 //数字人
 
-//环境参数配置
+#if 1 //环境参数
+
 typedef struct _actornode
 {
 	std::string ip;
@@ -908,6 +982,8 @@ bool getconfig_actornode(std::string configfilepath)
 		rewind(fp);
 
 		configbuffer = (char*)malloc(length * sizeof(char));
+		if (configbuffer == nullptr) return false;
+
 		fread(configbuffer, length, 1, fp);
 		fclose(fp);
 	}
@@ -916,11 +992,12 @@ bool getconfig_actornode(std::string configfilepath)
 	{
 		std::string value = "";
 		std::string config = configbuffer;
+		free(configbuffer);
 
 		value = getnodevalue(config, "actor_count");
 		if (value.empty()) return false;
 		int count = atoi(value.c_str());
-		_debug_to( 0, ("CONFIG_actornode count = %d\n"), count);
+		_debug_to(1, ("CONFIG_actornode count = %d\n"), count);
 
 		Container_actornode.clear();
 		for (int i = 0; i < count; i++)
@@ -934,13 +1011,13 @@ bool getconfig_actornode(std::string configfilepath)
 			value = getnodevalue(config, actor_ip);
 			if (value.empty()) continue;
 			ip = value;
-			_debug_to( 0, ("CONFIG_actornode actor%d_ip = %s\n"), i, ip.c_str());
+			_debug_to(1, ("CONFIG_actornode actor%d_ip = %s\n"), i, ip.c_str());
 
 			std::string actor_port = actor_pro + "port";
 			value = getnodevalue(config, actor_port);
 			if (value.empty()) continue;
 			port = atoi(value.c_str());
-			_debug_to( 0, ("CONFIG_actornode actor%d_port = %d\n"), i, port);
+			_debug_to(1, ("CONFIG_actornode actor%d_port = %d\n"), i, port);
 
 			actornode actornodeitem;
 			actornodeitem.ip = ip;
@@ -969,6 +1046,8 @@ bool getconfig_playnode(std::string configfilepath)
 		rewind(fp);
 
 		configbuffer = (char*)malloc(length * sizeof(char));
+		if (configbuffer == nullptr) return false;
+
 		fread(configbuffer, length, 1, fp);
 		fclose(fp);
 	}
@@ -977,16 +1056,17 @@ bool getconfig_playnode(std::string configfilepath)
 	{
 		std::string value = "";
 		std::string config = configbuffer;
+		free(configbuffer);
 
 		value = getnodevalue(config, "playnode_ip");
 		if (value.empty()) return false;
 		playnode_ip = value;
-		_debug_to( 0, ("CONFIG_playnode_ip = %s\n"), playnode_ip.c_str());
+		_debug_to(1, ("CONFIG_playnode_ip = %s\n"), playnode_ip.c_str());
 
 		value = getnodevalue(config, "playnode_port");
 		if (value.empty()) return false;
 		playnode_port = atoi(value.c_str());
-		_debug_to( 0, ("CONFIG_playnode_port = %d\n"), playnode_port);
+		_debug_to(1, ("CONFIG_playnode_port = %d\n"), playnode_port);
 
 		return true;
 	}
@@ -1009,6 +1089,8 @@ bool getconfig_digitvideopath(std::string configfilepath)
 		rewind(fp);
 
 		configbuffer = (char*)malloc(length * sizeof(char));
+		if (configbuffer == nullptr) return false;
+
 		fread(configbuffer, length, 1, fp);
 		fclose(fp);
 	}
@@ -1017,16 +1099,17 @@ bool getconfig_digitvideopath(std::string configfilepath)
 	{
 		std::string value = "";
 		std::string config = configbuffer;
+		free(configbuffer);
 
 		value = getnodevalue(config, "digitvideo_path1");
 		if (value.empty()) return false;
 		digitvideo_path1 = value;
-		_debug_to( 0, ("CONFIG_digitvideo_path1 = %s\n"), digitvideo_path1.c_str());
+		_debug_to(1, ("CONFIG_digitvideo_path1 = %s\n"), digitvideo_path1.c_str());
 
 		value = getnodevalue(config, "digitvideo_path2");
 		if (value.empty()) return false;
 		digitvideo_path2 = value;
-		_debug_to( 0, ("CONFIG_digitvideo_path2 = %s\n"), digitvideo_path2.c_str());
+		_debug_to(1, ("CONFIG_digitvideo_path2 = %s\n"), digitvideo_path2.c_str());
 
 		return true;
 	}
@@ -1036,6 +1119,8 @@ bool getconfig_digitvideopath(std::string configfilepath)
 
 unsigned int delay_beforetext = 500;
 unsigned int delay_aftertext = 300;
+std::string  folder_digitalmodel = "";
+std::string  folder_htmldigital = "";//child include <task>+<keyframe>+<resource>
 bool getconfig_global(std::string configfilepath)
 {
 	long length = 0;
@@ -1049,6 +1134,8 @@ bool getconfig_global(std::string configfilepath)
 		rewind(fp);
 
 		configbuffer = (char*)malloc(length * sizeof(char));
+		if (configbuffer == nullptr) return false;
+
 		fread(configbuffer, length, 1, fp);
 		fclose(fp);
 	}
@@ -1057,14 +1144,25 @@ bool getconfig_global(std::string configfilepath)
 	{
 		std::string value = "";
 		std::string config = configbuffer;
+		free(configbuffer);
 
 		value = getnodevalue(config, "delay_beforetext");
 		delay_beforetext = atoi(value.c_str());
-		_debug_to( 0, ("CONFIG_delay_beforetext = %d\n"), delay_beforetext);
+		_debug_to(1, ("CONFIG_delay_beforetext = %d\n"), delay_beforetext);
 
 		value = getnodevalue(config, "delay_aftertext");
 		delay_aftertext = atoi(value.c_str());
-		_debug_to( 0, ("CONFIG_delay_aftertext = %d\n"), delay_aftertext);
+		_debug_to(1, ("CONFIG_delay_aftertext = %d\n"), delay_aftertext);
+
+		value = getnodevalue(config, "folder_digitalmodel");
+		if (value.empty()) return false;
+		folder_digitalmodel = value.c_str();
+		_debug_to(1, ("CONFIG_folder_digitalmodel = %s\n"), folder_digitalmodel.c_str());
+
+		value = getnodevalue(config, "folder_htmldigital");
+		if (value.empty()) return false;
+		folder_htmldigital = value.c_str();
+		_debug_to(1, ("CONFIG_folder_htmldigital = %s\n"), folder_htmldigital.c_str());
 
 		return true;
 	}
@@ -1072,7 +1170,144 @@ bool getconfig_global(std::string configfilepath)
 	return false;
 }
 
-//合成
+#endif
+
+#if 1 //rabbitmq 消息
+
+//连接到rabbitmq服务
+static std::string rabbitmq_ip = "";
+static short	   rabbitmq_port = 5672;
+static std::string rabbitmq_user = "";
+static std::string rabbitmq_passwd = "";
+//发送者指定+接受者使用
+static std::string rabbitmq_exchange = "";  //消息属性1
+static std::string rabbitmq_routekey = "";  //消息熟悉2
+//接收者指定+接受者使用
+static std::string rabbitmq_queuename = ""; //消息队列名
+bool getconfig_rabbitmq(std::string configfilepath)
+{
+	long length = 0;
+	char* configbuffer = nullptr;
+	FILE* fp = nullptr;
+	fp = fopen(configfilepath.c_str(), "r");
+	if (fp != nullptr)
+	{
+		fseek(fp, 0, SEEK_END);
+		length = ftell(fp);
+		rewind(fp);
+
+		configbuffer = (char*)malloc(length * sizeof(char));
+		if (configbuffer == nullptr) return false;
+
+		fread(configbuffer, length, 1, fp);
+		fclose(fp);
+	}
+
+	if (length && configbuffer)
+	{
+		std::string value = "";
+		std::string config = configbuffer;
+		free(configbuffer);
+
+		value = getnodevalue(config, "rabbitmq_ip");
+		if (value.empty()) return false;
+		rabbitmq_ip = value;
+		_debug_to(1, ("CONFIG_rabbitmq_ip = %s\n"), rabbitmq_ip.c_str());
+
+		value = getnodevalue(config, "rabbitmq_port");
+		if (value.empty()) return false;
+		rabbitmq_port = atoi(value.c_str());
+		_debug_to(1, ("CONFIG_rabbitmq_port = %d\n"), rabbitmq_port);
+
+		value = getnodevalue(config, "rabbitmq_user");
+		if (value.empty()) return false;
+		rabbitmq_user = value;
+		_debug_to(1, ("CONFIG_rabbitmq_user = %s\n"), rabbitmq_user.c_str());
+
+		value = getnodevalue(config, "rabbitmq_passwd");
+		if (value.empty()) return false;
+		rabbitmq_passwd = value;
+		_debug_to(1, ("CONFIG_rabbitmq_passwd = %s\n"), rabbitmq_passwd.c_str());
+
+		//
+		value = getnodevalue(config, "rabbitmq_exchange");
+		if (value.empty()) return false;
+		rabbitmq_exchange = value;
+		_debug_to(1, ("CONFIG_rabbitmq_exchange = %s\n"), rabbitmq_exchange.c_str());
+
+		value = getnodevalue(config, "rabbitmq_routekey");
+		if (value.empty()) return false;
+		rabbitmq_routekey = value;
+		_debug_to(1, ("CONFIG_rabbitmq_routekey = %s\n"), rabbitmq_routekey.c_str());
+
+		return true;
+	}
+
+	return false;
+}
+
+std::string getNotifyMsg_ToHtml(int taskid)
+{
+	std::string result_str = "";
+	digitalmysql::taskinfo newstateitem;
+	digitalmysql::gettaskinfo(taskid, newstateitem);
+
+	//message data
+	int task_id = newstateitem.taskid;
+	int task_state = newstateitem.taskstate;
+	int task_progress = newstateitem.taskprogress;
+	std::string video_finalpath = newstateitem.video_finalpath;
+	std::string video_keyframe = "";
+	if (video_finalpath.empty())
+	{
+		std::string taskhumanid = newstateitem.humanid;
+		digitalmysql::VEC_HUMANINFO vechumaninfo;
+		digitalmysql::gethumanlistinfo(taskhumanid, vechumaninfo);
+		if (!vechumaninfo.empty())
+			video_keyframe = vechumaninfo[0].keyframe;
+	}
+	else
+	{
+		video_keyframe = str_replace(video_finalpath, ".mp4", ".bmp");
+	}
+
+	//message json
+	char tempbuff[1024] = { 0 };
+	snprintf(tempbuff, 1024, "{\"TaskID\":%d, \"State\":%d, \"Progerss\":%d, \"VedioFile\":\"%s\", \"FilePath\":\"%s\" }", task_id, task_state, task_progress, video_finalpath.c_str(), video_keyframe.c_str());
+	result_str = tempbuff;
+
+	return result_str;
+}
+
+//全局对象
+nsRabbitmq::cwRabbitmqPublish* g_RabbitmqSender = nullptr;
+bool sendRabbitmqMsg(std::string mqmessage)
+{
+	if (g_RabbitmqSender == nullptr)
+	{
+		_debug_to(0, ("Rabbitmq object is null,please restart...\n"));
+		return false;
+	}
+
+	std::vector<std::string>   vecMessage;
+	vecMessage.push_back(mqmessage);
+
+	nsRabbitmq::mmRabbitmqData Rabbitmq_testdata;
+	Rabbitmq_testdata.index = 0;
+	Rabbitmq_testdata.moreStr = "";
+	Rabbitmq_testdata.moreInt = 0;
+	Rabbitmq_testdata.exchange = rabbitmq_exchange;
+	Rabbitmq_testdata.routekey = rabbitmq_routekey;
+	Rabbitmq_testdata.commandVector.assign(vecMessage.begin(), vecMessage.end());
+	g_RabbitmqSender->send(Rabbitmq_testdata);
+
+	return true;
+}
+
+#endif
+
+#if 1//TCP消息
+
 typedef struct tagDGHDR
 {
 	u_int		type;		// type of packet
@@ -1196,6 +1431,7 @@ bool SendTcpMsg_DGHDR(std::string ip, short port, std::string sendmsg, bool brec
 		{
 			_debug_to( 0, ("addr: %s:%u ,send success: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
 		}
+		delete[] pbuffer;
 	}
 
 	if (bRet && brecv)
@@ -1307,6 +1543,7 @@ bool SendTcpMsg_PNPHDR(std::string ip, short port, std::string sendmsg, bool bre
 		{
 			_debug_to( 0, ("addr: %s:%u ,send success: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
 		}
+		delete[] pbuffer;
 	}
 
 	if (bRet && brecv)
@@ -1352,7 +1589,10 @@ exitsend:
 	return bRet;
 }
 
-//
+#endif
+
+#if 1//接口返回json
+
 std::string getjson_error(int code,std::string errmsg,std::string data = "")
 {
 	std::string result = "";
@@ -1364,27 +1604,23 @@ std::string getjson_error(int code,std::string errmsg,std::string data = "")
 }
 
 //
-std::string getjson_humanlistinfo(std::string humanid = "", int history = 0)
+std::string getjson_humanlistinfo(std::string humanid = "")
 {
 	bool result = true;
 	std::string errmsg = "";
 	std::string result_str = "";
 	
-	//1-gethumanlist
+	//1-getlist
 	digitalmysql::VEC_HUMANINFO vechumaninfo;
-	int human_cnt = digitalmysql::gethumanlistinfo(humanid, vechumaninfo);
-	_debug_to( 0, ("humaninfo size=%d\n"), human_cnt);
-	if (human_cnt <= 0)
-	{
-		result = false;
+	result = digitalmysql::gethumanlistinfo(humanid, vechumaninfo);
+	_debug_to( 0, ("gethumanlistinfo: vechumaninfo size=%d\n"), vechumaninfo.size());
+	if (!result)
 		errmsg = "gethumanlistinfo from mysql failed";
-	}
 
 	//2-parsedata
 	std::string list_info = "";
 	DigitalMan_Items result_object;
-	_debug_to( 0, ("humaninfo size=%d\n"), vechumaninfo.size());
-	for(int i = 0; i < vechumaninfo.size(); i++)
+	for(size_t i = 0; i < vechumaninfo.size(); i++)
 	{
 		DigitalMan_Item result_item;
 
@@ -1392,20 +1628,15 @@ std::string getjson_humanlistinfo(std::string humanid = "", int history = 0)
 		std::string base64_encode = "";
 		unsigned int width = 0, height = 0, bitcount = 32;
 		std::string filepath = vechumaninfo[i].keyframe;
-		if (is_existfile(filepath))
+		if (is_existfile(filepath.c_str()))
 		{
 			picture::GetPicInfomation(filepath.c_str(), &width, &height, &bitcount, format);
 			//base64_encode = base64::base64_encode_file(filepath);
 		}
-		else
-		{
-			result = false;
-			errmsg = "not found keyframe, please keep file exist and not readonly";
-			_debug_to( 0, ("not found keyframe, please keep file exist and not readonly.\n filepath = [%s]\n"), filepath.c_str());
-		}
 
-		result_item.VirtualmanKey = vechumaninfo[i].humanid;
+		result_item.HumanID = vechumaninfo[i].humanid;
 		result_item.HumanName = vechumaninfo[i].humanname;
+		result_item.SpeakSpeed = vechumaninfo[i].speakspeed;
 		result_item.KeyFrame_Format = format;
 		result_item.KeyFrame_Width = width;
 		result_item.KeyFrame_Height = height;
@@ -1415,39 +1646,7 @@ std::string getjson_humanlistinfo(std::string humanid = "", int history = 0)
 		result_object.vecDigitManItems.push_back(result_item);
 	}
 
-	//3-add HasHistory
-	if (history)
-	{
-		std::string orderkey = "createtime"; int aspect = 1;
-		digitalmysql::VEC_TASKINFO vectaskhistory;
-		int history_cnt = digitalmysql::gettaskhistoryinfo(humanid, orderkey, aspect, vectaskhistory);
-		_debug_to( 0, ("taskhistory size=%d\n"), history_cnt);
-		for (int i = 0; i < vectaskhistory.size(); i++)
-		{
-			std::string final_video_path = vectaskhistory[i].video_path;//if playnode return error,use green background video
-			if (!vectaskhistory[i].video_finalpath.empty())
-				final_video_path = vectaskhistory[i].video_finalpath;
-
-			std::string json_history = "";
-			char json_buff[BUFF_SZ] = { 0 };
-			snprintf(json_buff, BUFF_SZ, "{\"TaskID\":%d,\"TaskName\":\"%s\",\"State\":%d,\"Progress\":%d,\"CreateTime\":\"%s\",\"InputSsml\":\"%s\", \"Audio\":{\"AudioFormat\":\"%s\",\"AudioFile\":\"%s\"},\"Vedio\":{\"VideoFormat\":\"%s\",\"Width\":%d,\"Height\":%d,\"Fps\":%.1f,\"VedioFile\":\"%s\"}}",
-				vectaskhistory[i].taskid,vectaskhistory[i].taskname.c_str(), vectaskhistory[i].taskstate, vectaskhistory[i].taskprogress,vectaskhistory[i].createtime.c_str(), vectaskhistory[i].ssmltext.c_str(), vectaskhistory[i].audio_format.c_str(), vectaskhistory[i].audio_path.c_str(),
-				vectaskhistory[i].video_format.c_str(), vectaskhistory[i].video_width, vectaskhistory[i].video_height, vectaskhistory[i].video_fps, final_video_path.c_str());
-			json_history = json_buff;
-
-			_debug_to( 0, ("history[%d], TaskID=%d, humanid=%s\n"), i, vectaskhistory[i].taskid, vectaskhistory[i].humanid.c_str());
-
-			//add to every digitman object
-			for (int j = 0; j < result_object.vecDigitManItems.size(); j++)
-			{
-				if (result_object.vecDigitManItems[j].VirtualmanKey == vectaskhistory[i].humanid)
-				{
-					result_object.vecDigitManItems[j].vecDigitManTaskObj.push_back(json_history);
-				}
-			}
-		}
-	}
-
+	//3-writejson
 	if(result)
 		list_info = result_object.writeJson();
 
@@ -1460,8 +1659,9 @@ std::string getjson_humanlistinfo(std::string humanid = "", int history = 0)
 	{
 		std::string code = "\"code\": 0,";
 		std::string msg = "\"msg\": \"success\",";
-		std::string temp_listinfo = "\"HumanList\": [ " + list_info + "]";
-		list_info = temp_listinfo;
+
+		std::string temp_humanlist = "\"HumanList\": [ " + list_info + "]";
+		list_info = temp_humanlist;
 
 		result_str = "{" + code + msg + "\"data\":{" + list_info + "}" + "}";//too long,must use string append
 	}
@@ -1470,55 +1670,49 @@ std::string getjson_humanlistinfo(std::string humanid = "", int history = 0)
 }
 
 //
-std::string getjson_humanhistoryinfo(std::string humanid = "", std::string orderkey = "createtime", int aspect = 1)
+std::string getjson_humanhistoryinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo, std::string order_key = "createtime", int order_way = 1, int pagesize = 10, int pagenum = 1)
 {
 	bool result = true;
 	std::string errmsg = "";
 	std::string result_str = "";
 
-	digitalmysql::VEC_HUMANINFO vechumaninfo;
-	int human_cnt = digitalmysql::gethumanlistinfo(humanid, vechumaninfo);
-	_debug_to( 0, ("humaninfo size=%d\n"), human_cnt);
+	//1-getlist
+	int tasktotal = 0; digitalmysql::VEC_TASKINFO vectaskhistory;
+	result = digitalmysql::gettaskhistoryinfo(vecfilterinfo, order_key, order_way, pagesize, pagenum, tasktotal, vectaskhistory);
+	_debug_to( 0, ("get taskhistory size=%d\n"), vectaskhistory.size());
+	if (!result)
+		errmsg = "gettaskhistoryinfo from mysql failed";
 
-	digitalmysql::VEC_TASKINFO vectaskhistory;
-	int history_cnt = digitalmysql::gettaskhistoryinfo(humanid, orderkey, aspect, vectaskhistory);
-	_debug_to( 0, ("taskhistory size=%d\n"), history_cnt);
-
-	//
+	//2-parsedata
+	std::string other_info = "";
 	std::string history_info = "";
 	DigitalMan_Tasks result_object;
-	for (int i = 0; i < vectaskhistory.size(); i++)
+	for (size_t i = 0; i < vectaskhistory.size(); i++)
 	{
-		//临时修改
-		int current_humanidx = 0;
-		for (int j = 0; j < vechumaninfo.size(); j++)
-		{
-			if (vechumaninfo[j].humanid == vectaskhistory[i].humanid)
-			{
-				current_humanidx = j;
-				break;
-			}
-		}
-
 		DigitalMan_Task result_item;
 		result_item.TaskID = vectaskhistory[i].taskid;
+		result_item.TaskType = vectaskhistory[i].tasktype;
+		result_item.TaskMoodType = vectaskhistory[i].moodtype;
 		result_item.TaskName = vectaskhistory[i].taskname;
 		result_item.TaskState = vectaskhistory[i].taskstate;
 		result_item.TaskProgerss = vectaskhistory[i].taskprogress;
+		result_item.TaskSpeakSpeed = vectaskhistory[i].speakspeed;
 		result_item.TaskInputSsml = vectaskhistory[i].ssmltext;
 		result_item.TaskCreateTime = vectaskhistory[i].createtime;
-//		result_item.TaskHumanName = vectaskhistory[i].humanname;
-		result_item.TaskVirtualmanKey = vectaskhistory[i].humanid;
+		result_item.TaskHumanID = vectaskhistory[i].humanid;
+		result_item.TaskHumanName = vectaskhistory[i].humanname;
+		result_item.BackgroundFile = vectaskhistory[i].background_path;
+		result_item.Front_XPos = vectaskhistory[i].front_XPos;
+		result_item.Front_YPos = vectaskhistory[i].front_YPos;
+		result_item.Front_Scale = vectaskhistory[i].front_Scale;
+		result_item.Front_Rotation = vectaskhistory[i].front_Rotation;
 
-		//临时修改，从数字人全列表获取数字人名称（后续需调整数据库结构+taskinfo数据结构）
-		result_item.TaskHumanName = vechumaninfo[current_humanidx].humanname;
-
-		//临时修改，从视频路径获取关键帧路径（后续需调整数据库结构+taskinfo数据结构）
+		//从视频路径获取关键帧路径
 		std::string format = "";
 		std::string base64_encode = "";
 		unsigned int width = 0, height = 0, bitcount = 32;
 		std::string filepath = vectaskhistory[i].video_finalpath; filepath = str_replace(filepath, ".mp4", ".bmp");
-		if (is_existfile(filepath))
+		if (is_existfile(filepath.c_str()))
 		{
 			picture::GetPicInfomation(filepath.c_str(), &width, &height, &bitcount, format);
 			//base64_encode = base64::base64_encode_file(filepath);
@@ -1532,21 +1726,26 @@ std::string getjson_humanhistoryinfo(std::string humanid = "", std::string order
 		}
 		else
 		{
-			_debug_to( 0, ("not found keyframe, please keep file exist and not readonly.\n filepath = [%s]\n"), filepath.c_str());
-
 			//无任务关键帧则使用数字人关键帧
-			filepath = vechumaninfo[current_humanidx].keyframe;
-			if (is_existfile(filepath))
+			std::string humanid = vectaskhistory[i].humanid;
+			digitalmysql::VEC_HUMANINFO vechumaninfo;
+			digitalmysql::gethumanlistinfo(humanid, vechumaninfo);
+			if (vechumaninfo.size() > 0)
 			{
-				picture::GetPicInfomation(filepath.c_str(), &width, &height, &bitcount, format);
-				//base64_encode = base64::base64_encode_file(filepath);
+				filepath = vechumaninfo[0].keyframe;
+				if (is_existfile(filepath.c_str()))
+				{
+					_debug_to(0, ("task %d: use humansource keyframe, humanid=%s\n"), vectaskhistory[i].taskid, humanid);
+					picture::GetPicInfomation(filepath.c_str(), &width, &height, &bitcount, format);
+					//base64_encode = base64::base64_encode_file(filepath);
 
-				result_item.KeyFrame_Format = format;
-				result_item.KeyFrame_Width = width;
-				result_item.KeyFrame_Height = height;
-				result_item.KeyFrame_BitCount = bitcount;
-				result_item.KeyFrame_FilePath = filepath;
-				result_item.KeyFrame_KeyData = base64_encode;
+					result_item.KeyFrame_Format = format;
+					result_item.KeyFrame_Width = width;
+					result_item.KeyFrame_Height = height;
+					result_item.KeyFrame_BitCount = bitcount;
+					result_item.KeyFrame_FilePath = filepath;
+					result_item.KeyFrame_KeyData = base64_encode;
+				}	
 			}
 		}
 
@@ -1560,8 +1759,9 @@ std::string getjson_humanhistoryinfo(std::string humanid = "", std::string order
 		result_object.vecDigitManTasks.push_back(result_item);
 	}
 
+	//3-writejson
 	if (result)
-		history_info = result_object.writeJson();
+		history_info = result_object.writeJson();	
 
 	//4-return
 	if (!result)
@@ -1572,14 +1772,107 @@ std::string getjson_humanhistoryinfo(std::string humanid = "", std::string order
 	{
 		std::string code = "\"code\": 0,";
 		std::string msg = "\"msg\": \"success\",";
-		std::string temp_listinfo = "\"HumanData\": [ " + history_info + "]";
-		history_info = temp_listinfo;
 
-		result_str = "{" + code + msg + "\"data\":{" + history_info + "}" + "}";//too long,must use string append
+		char temp[256] = { 0 };
+		std::string temp_otherinfo;
+		snprintf(temp, 256, "\"DataTotal\":%d, \"PageSize\":%d, \"PageNum\":%d,", tasktotal, pagesize, pagenum); temp_otherinfo = temp;
+		other_info = temp_otherinfo;
+
+		std::string temp_humandata = "\"HumanData\": [ " + history_info + "]";
+		history_info = temp_humandata;
+
+		result_str = "{" + code + msg + "\"data\":{" + other_info + history_info + "}" + "}";//too long,must use string append
 	}
 
 	return result_str;
 }
+
+//
+std::string getjson_tasksourcelistinfo()
+{
+	bool result = true;
+	std::string errmsg = "";
+	std::string result_str = "";
+
+	//1-getlist
+	digitalmysql::VEC_TASKSOURCEINFO vectasksourceinfo;
+	result = digitalmysql::gettasksourcelist(vectasksourceinfo);
+	_debug_to(0, ("gettasksourcelist: vectasksourceinfo size=%d\n"), vectasksourceinfo.size());
+	if (!result)
+		errmsg = "gettasksourcelist from mysql failed";
+
+	//2-parsedata
+	std::string image_list_info = "";
+	DigitalMan_TaskSources image_result_object;
+	for (size_t i = 0; i < vectasksourceinfo.size(); i++)
+	{
+		if (vectasksourceinfo[i].sourcetype == digitalmysql::source_image)
+		{
+			DigitalMan_TaskSource result_item;
+			result_item.TaskSource_Type = digitalmysql::source_image;
+			result_item.TaskSource_FilePath = vectasksourceinfo[i].sourcepath;
+			result_item.TaskSource_KeyFrame = "";
+			image_result_object.vecDigitManTaskSources.push_back(result_item);
+		}
+	}
+	std::string video_list_info = "";
+	DigitalMan_TaskSources video_result_object;
+	for (size_t j = 0; j < vectasksourceinfo.size(); j++)
+	{
+		if (vectasksourceinfo[j].sourcetype == digitalmysql::source_video)
+		{
+			DigitalMan_TaskSource result_item;
+			result_item.TaskSource_Type = digitalmysql::source_video;
+			result_item.TaskSource_FilePath = vectasksourceinfo[j].sourcepath;
+			result_item.TaskSource_KeyFrame = vectasksourceinfo[j].sourcekeyframe;
+			video_result_object.vecDigitManTaskSources.push_back(result_item);
+		}
+	}
+	std::string audio_list_info = "";
+	DigitalMan_TaskSources audio_result_object;
+	for (size_t i = 0; i < vectasksourceinfo.size(); i++)
+	{
+		if (vectasksourceinfo[i].sourcetype == digitalmysql::source_audio)
+		{
+			DigitalMan_TaskSource result_item;
+			result_item.TaskSource_Type = digitalmysql::source_audio;
+			result_item.TaskSource_FilePath = vectasksourceinfo[i].sourcepath;
+			result_item.TaskSource_KeyFrame = "";
+			audio_result_object.vecDigitManTaskSources.push_back(result_item);
+		}
+	}
+
+	//3-writejson
+	if (result)
+	{
+		image_list_info = image_result_object.writeJson();
+		video_list_info = video_result_object.writeJson();
+		audio_list_info = audio_result_object.writeJson();
+	}
+
+	//4-return
+	if (!result)
+	{
+		result_str = getjson_error(1, errmsg, "");
+	}
+	else
+	{
+		std::string code = "\"code\": 0,";
+		std::string msg = "\"msg\": \"success\",";
+
+		std::string temp_imagelist = "\"ImageList\": [ " + image_list_info + "], ";
+		image_list_info = temp_imagelist;
+		std::string temp_videolist = "\"VideoList\": [ " + video_list_info + "], ";
+		video_list_info = temp_videolist;
+		std::string temp_audiolist = "\"AudioList\": [ " + audio_list_info + "] ";
+		audio_list_info = temp_audiolist;
+
+		result_str = "{" + code + msg + "\"data\":{" + image_list_info + video_list_info + audio_list_info + "}" + "}";//too long,must use string append
+	}
+
+	return result_str;
+}
+
 
 //
 bool waiting_videomerge(int taskid,int timeout = 1200)//1200s timeout
@@ -1590,6 +1883,8 @@ bool waiting_videomerge(int taskid,int timeout = 1200)//1200s timeout
 	{
 		progress = digitalmysql::getmergeprogress(taskid);
 		state_now = digitalmysql::getmergestate(taskid);
+		if (state_now > 0)//state:0=mergeing 1=success 2=failed
+			break;
 
 		sleep(1000);
 		++time;
@@ -1600,8 +1895,30 @@ bool waiting_videomerge(int taskid,int timeout = 1200)//1200s timeout
 
 	return result;
 }
+//Rec 通知消息
+std::string getNotifyMsg_ToRecNode(digitalmysql::taskinfo taskitem)
+{
+	std::string result_msg = "";
+	char buff[BUFF_SZ] = { 0 };
+
+	std::string send_videopath = taskitem.video_path;
+	send_videopath = str_replace(send_videopath.c_str(), ".mp4", "");
+
+	std::string messageid = getmessageid();
+	char msg_buff[BUFF_SZ] = { 0 };
+	snprintf(msg_buff, BUFF_SZ, "{\"ddrinfo\":[	\
+				{\"ddr\":\"%s\",\"devid\":\"\",\"offset\":0,\"length\":%d,\"pos\":{\"x\":0,\"y\":0,\"with\":0,\"height\":0}}	\
+				],\"background\":\"%s\",\"msgid\":\"%s\"}",
+		send_videopath.c_str(), taskitem.video_length, 
+		taskitem.background_path.c_str(),messageid.c_str());
+	result_msg = msg_buff;
+
+	return result_msg;
+}
 std::string getjson_runtaskresult(int taskid)
 {
+	//目前此函数仅用于生成语音，生成视频采用异步方式
+
 	bool result = true;
 	std::string errmsg = "";
 	std::string result_str = "";
@@ -1609,7 +1926,7 @@ std::string getjson_runtaskresult(int taskid)
 	long long dwS = gettimecount();
 	bool ret_waiting = waiting_videomerge(taskid);
 	long long dwE = gettimecount();
-	_debug_to( 0, ("++++++++++++++合成数字人时间: %d秒++++++++++++++\n"), dwE - dwS);
+	_debug_to( 0, ("++++++++++++++[task_%d]合成数字人时间: %d秒++++++++++++++\n"), taskid, dwE - dwS);
 
 	//continue add background
 	if (ret_waiting)
@@ -1622,21 +1939,8 @@ std::string getjson_runtaskresult(int taskid)
 			{
 				if (!playnode_ip.empty() && playnode_port != 0)
 				{
-					std::string send_videopath = taskitem.video_path;
-					send_videopath = str_replace(send_videopath.c_str(), ".mp4", "");
-					send_videopath = str_replace(send_videopath.c_str(), "/", "\\\\");
-
-					std::string sendmsg = "";
-					std::string recvmsg = "";
-					//make message
-					std::string messageid = getmessageid();
-					char msg_buff[BUFF_SZ] = { 0 };
-					snprintf(msg_buff, BUFF_SZ, "{\"ddrinfo\":[	\
-				{\"ddr\":\"%s\",\"devid\":\"\",\"offset\":0,\"length\":%d,\"pos\":{\"x\":0,\"y\":0,\"with\":0,\"height\":0}},	\
-				],\"background\":\"\",\"msgid\":\"%s\"}",
-						send_videopath.c_str(), taskitem.video_length,
-						messageid.c_str());
-					sendmsg = msg_buff;
+					std::string sendmsg = "",recvmsg = "";
+					sendmsg = getNotifyMsg_ToRecNode(taskitem);
 
 					//send message
 					int recv_timeout = taskitem.audio_length/1000 + 60;//音频时长+60秒
@@ -1730,7 +2034,7 @@ std::string getjson_runtaskresult(int taskid)
 			result_str = getjson_error(1, errmsg);
 		}
 		long long dwE = gettimecount();
-		_debug_to( 0, ("++++++++++++++录制数字人时间: %d秒++++++++++++++\n"), dwE - dwS);
+		_debug_to( 0, ("++++++++++++++[task_%d]录制数字人时间: %d秒++++++++++++++\n"), taskid, dwE - dwS);
 	}
 	else
 	{
@@ -1741,142 +2045,7 @@ std::string getjson_runtaskresult(int taskid)
 	return result_str;
 }
 
-
 #endif
-
-
-#if 1 //rabbitmq 消息
-
-//连接到rabbitmq服务
-static std::string rabbitmq_ip = "";
-static short	   rabbitmq_port = 5672;
-static std::string rabbitmq_user = "";
-static std::string rabbitmq_passwd = "";
-//发送者指定+接受者使用
-static std::string rabbitmq_exchange = "";  //消息属性1
-static std::string rabbitmq_routekey = "";  //消息熟悉2
-//接收者指定+接受者使用
-static std::string rabbitmq_queuename = ""; //消息队列名
-bool getconfig_rabbitmq(std::string configfilepath)
-{
-	long length = 0;
-	char* configbuffer = nullptr;
-	FILE* fp = nullptr;
-	fp = fopen(configfilepath.c_str(), "r");
-	if (fp != nullptr)
-	{
-		fseek(fp, 0, SEEK_END);
-		length = ftell(fp);
-		rewind(fp);
-
-		configbuffer = (char*)malloc(length * sizeof(char));
-		fread(configbuffer, length, 1, fp);
-		fclose(fp);
-	}
-
-	if (length && configbuffer)
-	{
-		std::string value = "";
-		std::string config = configbuffer;
-
-		value = getnodevalue(config, "rabbitmq_ip");
-		if (value.empty()) return false;
-		rabbitmq_ip = value;
-		_debug_to( 0, ("CONFIG_rabbitmq_ip = %s\n"), rabbitmq_ip.c_str());
-
-		value = getnodevalue(config, "rabbitmq_port");
-		if (value.empty()) return false;
-		rabbitmq_port = atoi(value.c_str());
-		_debug_to( 0, ("CONFIG_rabbitmq_port = %d\n"), rabbitmq_port);
-
-		value = getnodevalue(config, "rabbitmq_user");
-		if (value.empty()) return false;
-		rabbitmq_user = value;
-		_debug_to( 0, ("CONFIG_rabbitmq_user = %s\n"), rabbitmq_user.c_str());
-
-		value = getnodevalue(config, "rabbitmq_passwd");
-		if (value.empty()) return false;
-		rabbitmq_passwd = value;
-		_debug_to( 0, ("CONFIG_rabbitmq_passwd = %s\n"), rabbitmq_passwd.c_str());
-
-		//
-		value = getnodevalue(config, "rabbitmq_exchange");
-		if (value.empty()) return false;
-		rabbitmq_exchange = value;
-		_debug_to( 0, ("CONFIG_rabbitmq_exchange = %s\n"), rabbitmq_exchange.c_str());
-
-		value = getnodevalue(config, "rabbitmq_routekey");
-		if (value.empty()) return false;
-		rabbitmq_routekey = value;
-		_debug_to( 0, ("CONFIG_rabbitmq_routekey = %s\n"), rabbitmq_routekey.c_str());
-		
-		return true;
-	}
-
-	return false;
-}
-
-std::string getNotifyMsg_ToHtml(int taskid)
-{
-	std::string result_str = "";
-	digitalmysql::taskinfo newstateitem;
-	digitalmysql::gettaskinfo(taskid, newstateitem);
-
-	//message data
-	int task_id = newstateitem.taskid;
-	int task_state = newstateitem.taskstate;
-	int task_progress = newstateitem.taskprogress;
-	std::string video_finalpath = newstateitem.video_finalpath;
-	std::string video_keyframe = "";
-	if (video_finalpath.empty())
-	{
-		std::string taskhumanid = newstateitem.humanid;
-		digitalmysql::VEC_HUMANINFO taskhumaninfo;
-		digitalmysql::gethumanlistinfo(taskhumanid, taskhumaninfo);
-		if (!taskhumaninfo.empty())
-			video_keyframe = taskhumaninfo[0].keyframe;
-	}
-	else
-	{
-		video_keyframe = str_replace(video_finalpath, ".mp4", ".bmp");
-	}
-
-	//message json
-	char tempbuff[1024] = { 0 };
-	snprintf(tempbuff, 1024, "{\"TaskID\":%d, \"State\":%d, \"Progerss\":%d, \"VedioFile\":\"%s\", \"FilePath\":\"%s\" }", task_id, task_state, task_progress, video_finalpath.c_str(), video_keyframe.c_str());
-	result_str = tempbuff;
-
-	return result_str;
-}
-
-//全局对象
-nsRabbitmq::cwRabbitmqPublish* g_RabbitmqSender = nullptr;
-bool sendRabbitmqMsg(std::string mqmessage)
-{
-	if (g_RabbitmqSender == nullptr)
-	{
-		_debug_to( 0, ("Rabbitmq object is null,please restart...\n"));
-		return false;
-	}
-
-	std::vector<std::string>   vecMessage;
-	vecMessage.push_back(mqmessage);
-
-	nsRabbitmq::mmRabbitmqData Rabbitmq_testdata;
-	Rabbitmq_testdata.index = 0;
-	Rabbitmq_testdata.moreStr = "";
-	Rabbitmq_testdata.moreInt = 0;
-	Rabbitmq_testdata.exchange = rabbitmq_exchange;
-	Rabbitmq_testdata.routekey = rabbitmq_routekey;
-	Rabbitmq_testdata.commandVector.assign(vecMessage.begin(), vecMessage.end());
-	g_RabbitmqSender->send(Rabbitmq_testdata);
-
-	return true;
-}
-
-#endif
-
-
 
 #if 1 //合成任务分配
 
@@ -1908,89 +2077,110 @@ typedef std::map<std::string, actorinfo> ACTORINFO_MAP;
 ACTORINFO_MAP Container_actorinfo;
 
 //MergeTaskinfo 结构体
-typedef struct _mergetaskinfo
+typedef struct _actortaskinfo
 {
-	int taskid;
-	int tasktype;
-	double speakspeed;
-	std::string taskname;
-	std::string tasktext;
-	std::string path1;
-	std::string path2;
-	std::string filename;
-
-	std::string VirtualmanKey;
+	int			ActorTaskID;
+	int			ActorTaskType;
+	int			ActorMoodType;
+	double		ActorTaskSpeed;
+	std::string ActorTaskName;
+	std::string ActorTaskText;
+	std::string ActorTaskAudio;
+	std::string ActorTaskHumanID;
+	int			ActorTaskState;				//-1=waitmerge,0=merging,1=mergesuccess,2=mergefailed
+	//生成的音频视频需要移动到指定路径
+	std::string Move_Path1;
+	std::string Move_Path2;
+	std::string Move_FileName;
+	//指定模型文件
 	std::string AcousticModelFullPath;		//../0ModelFile/test/TTS/speak/snapshot_iter_1668699.pdz
 	std::string VcoderModelFullPath;		//../0ModelFile/test/TTS/pwg/snapshot_iter_1000000.pdz
 	std::string DFMModelsPath;				//../0ModelFile/test/W2L/file/shenzhen_v3_20230227.dfm
-	std::string OriVideoPath;				//../0ModelFile/test/W2L/video/bule22.mp4
 
-	int state;//-1=waitmerge,0=merging,1=mergesuccess,2=mergefailed
-
-	_mergetaskinfo()
+	_actortaskinfo()
 	{
-		taskid = 0;
-		tasktype = 1;
-		tasktext = "";
-		speakspeed = 1.0;
-		path1 = "";
-		path2 = "";
-		filename = "";
+		ActorTaskID = 0;
+		ActorTaskType = 1;
+		ActorMoodType = 0;
+		ActorTaskSpeed = 1.0;
+		ActorTaskName = "";
+		ActorTaskText = "";
+		ActorTaskAudio = "";
+		ActorTaskHumanID = "";
+		ActorTaskState = -1;
 
-		VirtualmanKey = "";
+		Move_Path1 = "";
+		Move_Path2 = "";
+		Move_FileName = "";
+
 		AcousticModelFullPath = "";
 		VcoderModelFullPath = "";
 		DFMModelsPath = "";
-		OriVideoPath = "";
-		state = -1;
 	}
 
-	void copydata(const _mergetaskinfo& item)
+	void copydata(const _actortaskinfo& item)
 	{
-		taskid = item.taskid;
-		tasktype = item.tasktype;
-		tasktext = item.tasktext;
-		speakspeed = item.speakspeed;
-		path1 = item.path1;
-		path2 = item.path2;
-		filename = item.filename;
+		ActorTaskID = item.ActorTaskID;
+		ActorTaskType = item.ActorTaskType;
+		ActorMoodType = item.ActorMoodType;
+		ActorTaskSpeed = item.ActorTaskSpeed;
+		ActorTaskName = item.ActorTaskName;
+		ActorTaskText = item.ActorTaskText;
+		ActorTaskAudio = item.ActorTaskAudio;
+		ActorTaskHumanID = item.ActorTaskHumanID;
+		ActorTaskState = item.ActorTaskState;
 
-		VirtualmanKey = item.VirtualmanKey;
+		Move_Path1 = item.Move_Path1;
+		Move_Path2 = item.Move_Path2;
+		Move_FileName = item.Move_FileName;
+
 		AcousticModelFullPath = item.AcousticModelFullPath;
 		VcoderModelFullPath = item.VcoderModelFullPath;
 		DFMModelsPath = item.DFMModelsPath;
-		OriVideoPath = item.OriVideoPath;
-		state = item.state;
 	}
 
-}mergetaskinfo, * pmergetaskinfo;
-typedef std::map<int, mergetaskinfo> MERGETASKINFO_MAP;
-MERGETASKINFO_MAP Container_mergetaskinfo;
+}actortaskinfo, * pactortaskinfo;
+typedef std::map<int, actortaskinfo> ACTORTASKINFO_MAP;
+ACTORTASKINFO_MAP Container_actortaskinfo;
+
+//Actor 通知消息
+std::string getNotifyMsg_ToActor(actortaskinfo actortaskitem)
+{
+	std::string result_msg = "";
+	char buff[BUFF_SZ] = { 0 };
+	snprintf(buff, BUFF_SZ, "<MPC><RequestID>%d</RequestID><ColumnName>栏目名</ColumnName><MPCType>%d</MPCType><MoodType>%d</MoodType><SpeakSpeed>%.1f</SpeakSpeed><TaskText>[p%d]%s[p%d]</TaskText><AudioPath>%s</AudioPath><Path1>%s</Path1><Path2>%s</Path2><DestFileName>%s</DestFileName>	\
+							<Humanid>%s</Humanid><AcousticModelFullPath>%s</AcousticModelFullPath><VcoderModelFullPath>%s</VcoderModelFullPath><DFMModelsPath>%s</DFMModelsPath></MPC>",
+		actortaskitem.ActorTaskID, actortaskitem.ActorTaskType, actortaskitem.ActorMoodType, actortaskitem.ActorTaskSpeed, delay_beforetext, actortaskitem.ActorTaskText.c_str(), delay_aftertext, actortaskitem.ActorTaskAudio.c_str(), actortaskitem.Move_Path1.c_str(), actortaskitem.Move_Path2.c_str(), actortaskitem.Move_FileName.c_str(),
+		actortaskitem.ActorTaskHumanID.c_str(), actortaskitem.AcousticModelFullPath.c_str(), actortaskitem.VcoderModelFullPath.c_str(), actortaskitem.DFMModelsPath.c_str());
+	result_msg = buff;
+
+	return result_msg;
+}
 
 //Actror 状态更新
 pthread_mutex_t mutex_actorinfo;// actorinfo互斥量
-pthread_mutex_t mutex_mergetaskinfo;// mergetaskinfo互斥量
+pthread_mutex_t mutex_actortaskinfo;// actortaskinfo互斥量
 pthread_t threadid_updateactorinfo;
 void* pthread_updateactorinfo(void* arg)
 {
-    bool bInit = true;
-    while(bInit)
-    {
-        actorinfo FindActor;
-        ACTORINFO_MAP::iterator itFind = Container_actorinfo.begin();
-        for(itFind; itFind != Container_actorinfo.end(); ++itFind)
-        {
-            pthread_mutex_lock(&mutex_actorinfo);
-            FindActor.copydata(itFind->second);
-            pthread_mutex_unlock(&mutex_actorinfo);
+	bool bInit = true;
+	while (bInit)
+	{
+		actorinfo FindActor;
+		ACTORINFO_MAP::iterator itFind = Container_actorinfo.begin();
+		for (itFind; itFind != Container_actorinfo.end(); ++itFind)
+		{
+			pthread_mutex_lock(&mutex_actorinfo);
+			FindActor.copydata(itFind->second);
+			pthread_mutex_unlock(&mutex_actorinfo);
 
-            std::string ip = FindActor.ip;
-            short port = FindActor.port;
-            std::string msg = "<actorstate></actorstate>";
-            std::string recvmsg = "";
-            if(SendTcpMsg_DGHDR(ip,port,msg,true,recvmsg))//查询Actor状态
-            {
-				_debug_to( 0, ("addr: %s:%u ,send actor check message success,recv message: %s\n"), ip.c_str(), port, recvmsg.c_str());
+			std::string ip = FindActor.ip;
+			short port = FindActor.port;
+			std::string msg = "<actorstate></actorstate>";
+			std::string recvmsg = "";
+			if (SendTcpMsg_DGHDR(ip, port, msg, true, recvmsg))//查询Actor状态
+			{
+				_debug_to(0, ("addr: %s:%u ,send actor check message success,recv message: %s\n"), ip.c_str(), port, recvmsg.c_str());
 				//
 				int nNewState = FindActor.state;
 				json::Value json_val = json::Deserialize((char*)recvmsg.c_str());
@@ -2008,36 +2198,25 @@ void* pthread_updateactorinfo(void* arg)
 					itFind->second.firstworktick = (long)clock();	//start working
 				if (FindActor.firstworktick != 0 && nNewState == 0)
 					itFind->second.firstworktick = 0;				//stop working
-				if (FindActor.state == 1 && FindActor.firstworktick != 0 && (FindActor.firstworktick-clock()) > 6000000)
+				if (FindActor.state == 1 && FindActor.firstworktick != 0 && (FindActor.firstworktick - clock()) > 6000000)
+				{
 					itFind->second.state = -1;						//working too long
+					_debug_to(1, ("addr: %s:%u , actor work crash,please restart...\n"), FindActor.ip.c_str(), FindActor.port);
+				}
 				pthread_mutex_unlock(&mutex_actorinfo);
-            }
-            else
-            {
-				_debug_to( 0, ("addr: %s:%u ,send actor check message failed: %s\n"), ip.c_str(), port, msg.c_str());
-            }
-        }
+			}
+			else
+			{
+				_debug_to(0, ("addr: %s:%u ,send actor check message failed: %s\n"), ip.c_str(), port, msg.c_str());
+			}
+		}
 
-        sleep(5000);
+		sleep(5000);
 		//pthread_exit(nullptr);//中途退出当前线程
-    }
+	}
 
-	_debug_to( 0, ("pthread_updateactorinfo exit...\n"));
-    return nullptr;
-}
-
-//MergeTask 通知消息
-std::string getNotifyMsg_ToActor(mergetaskinfo taskitem)
-{
-	std::string result_msg = "";
-	char buff[BUFF_SZ] = { 0 };
-	snprintf(buff, BUFF_SZ, "<MPC><RequestID>%d</RequestID><ColumnName>测试栏目</ColumnName><MPCType>%d</MPCType><SpeakSpeed>%.1f</SpeakSpeed><TaskText>[p%d]%s[p%d]</TaskText><Path1>%s</Path1><Path2>%s</Path2><DestFileName>%s</DestFileName>	\
-							<Humanid>%s</Humanid><AcousticModelFullPath>%s</AcousticModelFullPath><VcoderModelFullPath>%s</VcoderModelFullPath><DFMModelsPath>%s</DFMModelsPath><OriVideoPath>%s</OriVideoPath></MPC>",
-		taskitem.taskid, taskitem.tasktype, taskitem.speakspeed, delay_beforetext, taskitem.tasktext.c_str(), delay_aftertext,taskitem.path1.c_str(), taskitem.path2.c_str(), taskitem.filename.c_str(),
-		taskitem.VirtualmanKey.c_str(), taskitem.AcousticModelFullPath.c_str(), taskitem.VcoderModelFullPath.c_str(), taskitem.DFMModelsPath.c_str(), taskitem.OriVideoPath.c_str());
-	result_msg = buff;
-
-	return result_msg;
+	_debug_to(0, ("pthread_updateactorinfo exit...\n"));
+	return nullptr;
 }
 
 //MergeTask 分配执行
@@ -2063,50 +2242,50 @@ void* pthread_runtask_thread(void* arg)
 			}
 		}
 
-		int taskid = 0;
-		std::string tasktext = "";
+		int findActorTaskID = 0;
+		std::string findActorTaskText = "";
 		//找到需合成的任务
 		bool bTask = false;
-		mergetaskinfo findtaskitem;
-		MERGETASKINFO_MAP::iterator itFindTask = Container_mergetaskinfo.begin();
-		for (itFindTask; itFindTask != Container_mergetaskinfo.end(); ++itFindTask)
+		actortaskinfo find_actortaskitem;
+		ACTORTASKINFO_MAP::iterator itFindTask = Container_actortaskinfo.begin();
+		for (itFindTask; itFindTask != Container_actortaskinfo.end(); ++itFindTask)
 		{
-			if (itFindTask->second.state == -1)//need merge
+			if (itFindTask->second.ActorTaskState == -1)//need merge
 			{
-				taskid = itFindTask->second.taskid;
-				tasktext = itFindTask->second.tasktext;
-				findtaskitem.copydata(itFindTask->second);
+				findActorTaskID = itFindTask->second.ActorTaskID;
+				findActorTaskText = itFindTask->second.ActorTaskText;
+				find_actortaskitem.copydata(itFindTask->second);
 				bTask = true;
 
-				pthread_mutex_lock(&mutex_mergetaskinfo);
-				Container_mergetaskinfo.erase(itFindTask);
-				pthread_mutex_unlock(&mutex_mergetaskinfo);
+				pthread_mutex_lock(&mutex_actortaskinfo);
+				Container_actortaskinfo.erase(itFindTask);
+				pthread_mutex_unlock(&mutex_actortaskinfo);
 				break;
 			}
 		}
 
 		//运行任务
-		bool bContinueRun = (bActor&&bTask);
+		bool bContinueRun = (bActor && bTask);
 		if (bContinueRun)
 		{
-			_debug_to( 0, ("ASSIGN task run===================================================\n"));
+			_debug_to(0, ("ASSIGN task run===================================================\n"));
 			std::string recvmsg;
-			std::string sendmsg = getNotifyMsg_ToActor(findtaskitem);
+			std::string sendmsg = getNotifyMsg_ToActor(find_actortaskitem);
 			if (SendTcpMsg_DGHDR(ip, port, sendmsg, false, recvmsg))//向Actor发送任务
 			{
-				_debug_to( 0, ("addr: %s:%u ,send task success, TaskID=%d, text: %s\n"), ip.c_str(), port, taskid, tasktext.c_str());
-				std::string result_str = getjson_runtaskresult(taskid);
+				_debug_to(0, ("addr: %s:%u ,send task success, ActorTaskID=%d\n"), ip.c_str(), port, findActorTaskID);
+				std::string result_str = getjson_runtaskresult(findActorTaskID);
 			}
 			else
 			{
-				_debug_to( 0, ("addr: %s:%u ,send task failed, TaskID=%d, text: %s\n"), ip.c_str(), port, taskid, tasktext.c_str());
-				digitalmysql::setmergestate(findtaskitem.taskid, 2);//任务状态为失败
-				digitalmysql::setmergeprogress(findtaskitem.taskid, 100);//合成进度为100
+				_debug_to(0, ("addr: %s:%u ,send task failed, ActorTaskID=%d\n"), ip.c_str(), port, findActorTaskID);
+				digitalmysql::setmergestate(find_actortaskitem.ActorTaskID, 2);//任务状态为失败
+				digitalmysql::setmergeprogress(find_actortaskitem.ActorTaskID, 100);//合成进度为100
 			}
 
 			//notify html
 			int times = 0;
-			std::string htmlnotifymsg = getNotifyMsg_ToHtml(findtaskitem.taskid);
+			std::string htmlnotifymsg = getNotifyMsg_ToHtml(find_actortaskitem.ActorTaskID);
 			bool notifyresult = sendRabbitmqMsg(htmlnotifymsg);
 			while (!notifyresult)//retry
 			{
@@ -2116,24 +2295,24 @@ void* pthread_runtask_thread(void* arg)
 				sleep(1000);
 			}
 			std::string msgresult = (notifyresult) ? ("success") : ("failed");
-			_debug_to( 0, ("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
+			_debug_to(0, ("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
 		}
 
 		sleep(1000);
 		//pthread_exit(nullptr);//中途退出当前线程
 	}
 
-	_debug_to( 0, ("pthread_checkactor exit...\n"));
+	_debug_to(0, ("pthread_checkactor exit...\n"));
 	return nullptr;
 }
 
 //MergeTask 立即执行
-std::string getjson_runtask_now(mergetaskinfo taskitem)
+std::string getjson_runtask_now(actortaskinfo actortaskitem)
 {
 	std::string errmsg = "";
 	std::string result_str = "";
 
-	std::string ip = "";short port = 0;
+	std::string ip = ""; short port = 0;
 	//找到空闲Actor
 	bool bActor = false;
 	ACTORINFO_MAP::iterator itFindActor = Container_actorinfo.begin();
@@ -2148,28 +2327,32 @@ std::string getjson_runtask_now(mergetaskinfo taskitem)
 		}
 	}
 
-
-	int taskid = taskitem.taskid;
-	std::string tasktext = taskitem.tasktext;
+	//运行任务
+	int nowActorTaskID = actortaskitem.ActorTaskID;
+	std::string nowActorTaskText = actortaskitem.ActorTaskText;
 	if (bActor)
 	{
-		_debug_to( 0, ("SYNC task run===================================================\n"));
+		_debug_to(0, ("SYNC task run===================================================\n"));
 		std::string recvmsg;
-		std::string sendmsg = getNotifyMsg_ToActor(taskitem);
+		std::string sendmsg = getNotifyMsg_ToActor(actortaskitem);
 		if (SendTcpMsg_DGHDR(ip, port, sendmsg, false, recvmsg))//向Actor发送任务
 		{
-			_debug_to( 0, ("addr: %s:%u ,send task success, TaskID=%d, text: %s\n"), ip.c_str(), port, taskid, tasktext.c_str());
-			result_str = getjson_runtaskresult(taskid);
+			_debug_to(0, ("addr: %s:%u ,send task success, ActorTaskID=%d\n"), ip.c_str(), port, nowActorTaskID);
+			result_str = getjson_runtaskresult(nowActorTaskID);
 		}
 		else
 		{
-			errmsg = "can not send tcp message...";
+			_debug_to(0, ("addr: %s:%u ,send task failed, ActorTaskID=%d\n"), ip.c_str(), port, nowActorTaskID);
+			digitalmysql::setmergestate(actortaskitem.ActorTaskID, 2);//任务状态为失败
+			digitalmysql::setmergeprogress(actortaskitem.ActorTaskID, 100);//合成进度为100
+
+			errmsg = "send tcp message to actor failed...";
 			result_str = getjson_error(1, errmsg);
 		}
 
 		//notify html
 		int times = 0;
-		std::string htmlnotifymsg = getNotifyMsg_ToHtml(taskitem.taskid);
+		std::string htmlnotifymsg = getNotifyMsg_ToHtml(actortaskitem.ActorTaskID);
 		bool notifyresult = sendRabbitmqMsg(htmlnotifymsg);
 		while (!notifyresult)//retry
 		{
@@ -2179,7 +2362,7 @@ std::string getjson_runtask_now(mergetaskinfo taskitem)
 			sleep(1000);
 		}
 		std::string msgresult = (notifyresult) ? ("success") : ("failed");
-		_debug_to( 0, ("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
+		_debug_to(0, ("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
 	}
 	else
 	{
@@ -2221,7 +2404,681 @@ void ParseBodyStr(json::Object json_obj, std::map<std::string, std::string>& map
 			json::Object json_subobj = it->second.ToObject();
 			ParseBodyStr(json_subobj, mapStrParameter, mapIntParameter, mapDoubleParameter);
 		}
+		if (it->second.GetType() == json::ArrayVal)
+		{
+			json::Array json_subarray = it->second.ToArray();
+			for (size_t j = 0; j < json_subarray.size(); ++j)
+			{
+				if (json_subarray[j].GetType() == json::ObjectVal)
+				{
+					json::Object json_subarray_obj = json_subarray[j].ToObject();
+					ParseBodyStr(json_subarray_obj, mapStrParameter, mapIntParameter, mapDoubleParameter);
+				}
+			}
+		}
 	}
+}
+
+//fromdata数据保存到文件,用于调试
+#define DF_FROMDATA_TOFILE 0
+
+bool buffer_to_file(struct evbuffer* item_evbuffer, const struct evbuffer_ptr* item_offset, size_t item_bufferlen, std::string filefolder, std::string& finalpath, std::string& errmsg)
+{
+	//以下为fromdata的格式: #代表boundary，--#是起始符和分割符， --#--是结束符
+	// --# + [header + \r\n\r\n + data] + --# + [header + \r\n\r\n + data] + ... + --#--
+	//函数传入offset+bufferlen，认为这段数据是单个Item的数据
+
+	if (!create_directories(filefolder.c_str()))
+	{
+		errmsg = "create final humanfolder error. ";
+		errmsg += filefolder;
+		return false;
+	}
+
+	std::string partName_ansi, partFileName_ansi;
+	//找到item起始和结束位置
+	size_t pos_start_evbuffer = item_offset->pos;
+	size_t pos_end_evbuffer = item_offset->pos + item_bufferlen;
+	evbuffer_ptr ptritem_start, ptritem_end;
+	evbuffer_ptr_set(item_evbuffer, &ptritem_start, pos_start_evbuffer, EVBUFFER_PTR_SET);
+	evbuffer_ptr_set(item_evbuffer, &ptritem_end, pos_end_evbuffer, EVBUFFER_PTR_SET);
+
+	
+	std::string splite_tag = "\r\n\r\n";
+	evbuffer_ptr ptritem_splite = evbuffer_search_range(item_evbuffer, splite_tag.c_str(), splite_tag.length(), &ptritem_start, &ptritem_end);
+	if (ptritem_splite.pos > 0)
+	{
+		//找到header的部分,并解析name+filename
+		size_t item_headlen = ptritem_splite.pos - ptritem_start.pos;// \r\n\r\n的位置 - item数据起始位置
+		char* item_head = (char*)malloc(item_headlen + 1);
+		if (item_head == nullptr)
+		{
+			errmsg = "malloc item_head buffer error...";
+			return false;
+		}
+		memset(item_head, 0, sizeof(char) * (item_headlen + 1));
+		size_t headcopy = evbuffer_copyout_from(item_evbuffer, &ptritem_start, item_head, item_headlen);
+		if (headcopy == item_headlen)
+		{
+			std::string head_str = item_head;
+			std::vector<std::string> headVector;
+			globalSpliteString(head_str, headVector, ("\n"));
+
+			int endIdx = headVector.size() - 1;
+			while (headVector.size() > 0)
+			{
+				std::string thisLine = headVector[endIdx--];
+				headVector.pop_back();
+
+				int index = thisLine.find(':');
+				if (index < 0) continue;
+				const std::string header = thisLine.substr(0, index);
+				if (header == "Content-Disposition")
+				{
+					std::string partName = getDispositionValue(thisLine, index + 1, "name");
+					std::string partFileName = getDispositionValue(thisLine, index + 1, "filename");
+					utf8_to_ansi(partName.c_str(), partName.length(), partName_ansi);
+					utf8_to_ansi(partFileName.c_str(), partFileName.length(), partFileName_ansi);
+				}
+			}
+		}
+		free(item_head); item_head = nullptr;
+
+		//splite offset
+		size_t splite_offset = splite_tag.length();
+		evbuffer_ptr_set(item_evbuffer, &ptritem_splite, splite_offset, EVBUFFER_PTR_ADD);
+
+		//找到data的部分,保存到文件【本函数认为Item是文件】
+		if (!partFileName_ansi.empty())//该段数据为文件
+		{
+			std::string finalfilepath = finalpath;
+			if (finalfilepath.empty())
+				finalfilepath = filefolder + std::string("/") + partFileName_ansi;
+
+			if (ptritem_end.pos > ptritem_splite.pos)
+			{
+				size_t item_datalen = ptritem_end.pos - ptritem_splite.pos;//使用修改后的pos
+
+				FILE* fp = nullptr;
+				fp = fopen(finalfilepath.c_str(), "wb");
+				if (fp == nullptr)
+				{
+					errmsg = "opening file error... ";
+					errmsg += finalfilepath;
+					return false;
+				}
+
+				size_t copylen_now = 10240;
+				char   copybuff_now[10240] = { 0 };
+				size_t copylen_total = item_datalen;
+				while (copylen_total)
+				{
+					if (copylen_total < 10240)
+						copylen_now = copylen_total;
+
+					size_t copylen_real = evbuffer_copyout_from(item_evbuffer, &ptritem_splite, copybuff_now, copylen_now);
+					if (copylen_real == copylen_now)
+					{
+						fwrite(copybuff_now, sizeof(char), copylen_now, fp);
+						copylen_total -= copylen_now;
+						evbuffer_ptr_set(item_evbuffer, &ptritem_splite, copylen_now, EVBUFFER_PTR_ADD);
+					}
+				}
+				fclose(fp);
+				finalpath = finalfilepath;
+			}
+		}
+	}
+
+	return true;
+}
+
+bool buffer_to_string(struct evbuffer* item_evbuffer, const struct evbuffer_ptr* item_offset, size_t item_bufferlen, std::string& partName, std::string& partValue, std::string& errmsg)
+{
+	//以下为fromdata的格式: #代表boundary，--#是起始符和分割符， --#--是结束符
+	// --# + [header + \r\n\r\n + data] + --# + [header + \r\n\r\n + data] + ... + --#--
+	//函数传入offset+bufferlen，认为这段数据是单个Item的数据
+
+	std::string partName_ansi, partFileName_ansi;
+	//找到item起始和结束位置
+	size_t pos_start_evbuffer = item_offset->pos;
+	size_t pos_end_evbuffer = item_offset->pos + item_bufferlen;
+	evbuffer_ptr ptritem_start, ptritem_end;
+	evbuffer_ptr_set(item_evbuffer, &ptritem_start, pos_start_evbuffer, EVBUFFER_PTR_SET);
+	evbuffer_ptr_set(item_evbuffer, &ptritem_end, pos_end_evbuffer, EVBUFFER_PTR_SET);
+	std::string splite_tag = "\r\n\r\n";
+	evbuffer_ptr ptritem_splite = evbuffer_search_range(item_evbuffer, splite_tag.c_str(), splite_tag.length(), &ptritem_start, &ptritem_end);
+	if (ptritem_splite.pos > 0)
+	{
+		//找到header的部分,并解析name+filename
+		size_t item_headlen = ptritem_splite.pos - ptritem_start.pos;// \r\n\r\n的位置 - item数据起始位置
+		char* item_head = (char*)malloc(item_headlen + 1);
+		if (item_head == nullptr)
+		{
+			errmsg = "malloc item_head buffer error...";
+			return false;
+		}
+		memset(item_head, 0, sizeof(char) * (item_headlen + 1));
+		size_t headcopy = evbuffer_copyout_from(item_evbuffer, &ptritem_start, item_head, item_headlen);
+		if (headcopy == item_headlen)
+		{
+			std::string head_str = item_head;
+			std::vector<std::string> headVector;
+			globalSpliteString(head_str, headVector, ("\n"));
+
+			int endIdx = headVector.size() - 1;
+			while (headVector.size() > 0)
+			{
+				std::string thisLine = headVector[endIdx--];
+				headVector.pop_back();
+
+				int index = thisLine.find(':');
+				if (index < 0) continue;
+				const std::string header = thisLine.substr(0, index);
+				if (header == "Content-Disposition")
+				{
+					std::string partName = getDispositionValue(thisLine, index + 1, "name");
+					std::string partFileName = getDispositionValue(thisLine, index + 1, "filename");
+					utf8_to_ansi(partName.c_str(), partName.length(), partName_ansi);
+					utf8_to_ansi(partFileName.c_str(), partFileName.length(), partFileName_ansi);
+				}
+			}
+		}
+		free(item_head); item_head = nullptr;
+
+		//splite offset
+		size_t splite_offset = splite_tag.length();
+		evbuffer_ptr_set(item_evbuffer, &ptritem_splite, splite_offset, EVBUFFER_PTR_ADD);
+
+		//找到data的部分,保存到文件【本函数认为data是字符串】
+		if (partFileName_ansi.empty() && !partName_ansi.empty())//该段数据为字符串
+		{
+			size_t item_datalen = ptritem_end.pos - ptritem_splite.pos;//使用修改后的pos
+			char* item_data = (char*)malloc(item_datalen + 1);
+			if (item_data == nullptr)
+			{
+				errmsg = "malloc item_data buffer error...";
+				return false;
+			}
+
+			memset(item_data, 0, sizeof(char) * (item_datalen + 1));
+			size_t datacopy = evbuffer_copyout_from(item_evbuffer, &ptritem_splite, item_data, item_datalen);
+			if (datacopy == item_datalen)
+			{
+				std::string partValue_ansi, partValue_utf8;
+				partValue_utf8 = item_data;
+
+				utf8_to_ansi(partValue_utf8.c_str(), partValue_utf8.length(), partValue_ansi);
+				partValue_ansi = str_replace(partValue_ansi, std::string("\r\n"), std::string(""));
+
+				partName = partName_ansi;
+				partValue = partValue_ansi;
+			}
+		}
+	}
+
+	return true;
+}
+
+//新增数字人接口
+bool ParseAddHuman(evkeyvalq* in_header, evbuffer* in_buffer, std::string& humanname, size_t& filecount, std::string& errmsg)
+{
+	//---------------fromdata----------------//
+	//str_boundary_start
+	//item_data1
+	//str_boundary_start
+	//item_data2
+	//str_boundary_end
+	//---------------fromdata----------------//
+
+#if 1 //解析form-data类型的数据,前几个步骤相同
+
+	//header
+	bool bfromdata = false;
+	std::string str_boundary_start = "", str_boundary_end = "";
+	std::string str_boundary = evhttp_find_header(in_header, "Content-Type");
+	std::string::size_type idx = str_boundary.find(std::string("multipart/form-data"));
+	if (idx != std::string::npos)
+	{
+		str_boundary = str_replace(str_boundary, "multipart/form-data; boundary=", "");
+		str_boundary_start = std::string("--") + str_boundary;
+		str_boundary_end = std::string("--")+ str_boundary + std::string("--");
+		bfromdata = true;
+	}
+
+	//buffer
+	size_t bufflen = evbuffer_get_length(in_buffer);
+	evbuffer_ptr ptr_datastart, ptr_dataend;
+	evbuffer_ptr_set(in_buffer, &ptr_datastart, 0, EVBUFFER_PTR_SET);
+	evbuffer_ptr_set(in_buffer, &ptr_dataend, bufflen, EVBUFFER_PTR_SET);
+
+#if DF_FROMDATA_TOFILE	
+	size_t all_bufferlen = bufflen;
+
+	all_bufferlen = 1024;//mydebug
+	char* all_buffer = (char*)malloc(all_bufferlen); 
+	if (all_buffer == nullptr)
+	{
+		errmsg = "malloc all_buffer buffer error...";
+		return false;
+	}
+	memset(all_buffer, 0, sizeof(char) * (all_bufferlen));
+	size_t all_copy = evbuffer_copyout_from(in_buffer, &ptr_datastart, all_buffer, all_bufferlen);
+	if (all_copy == all_bufferlen)
+	{
+		std::string name_all = "addhuman_all";
+		if (!write_file(name_all.c_str(), all_buffer, all_bufferlen))
+		{
+			errmsg = "write file all_buffer buffer error...";
+			free(all_buffer);
+			return false;
+		}	
+	}
+	free(all_buffer); all_buffer = nullptr;
+#endif
+
+	//parse buffer
+	evbuffer_ptr ptr_start, ptr_end;
+	ptr_end = evbuffer_search_range(in_buffer, str_boundary_end.c_str(), str_boundary_end.length(), &ptr_datastart, &ptr_dataend);
+	std::vector<evbuffer_ptr> vecoffsetptr;
+	while (1)
+	{
+		ptr_start = evbuffer_search_range(in_buffer, str_boundary_start.c_str(), str_boundary_start.length(), &ptr_datastart, &ptr_dataend);
+		if (ptr_start.pos < 0 || ptr_end.pos < 0)//错误
+			break;
+
+		if (ptr_start.pos < ptr_end.pos)
+		{
+			vecoffsetptr.push_back(ptr_start);
+		}
+		if (ptr_start.pos == ptr_end.pos)
+		{
+			vecoffsetptr.push_back(ptr_start);
+			break;
+		}
+
+		size_t offset = str_boundary_start.length();
+		if (offset <= 0) break;
+		evbuffer_ptr_set(in_buffer, &ptr_datastart, ptr_start.pos+offset, EVBUFFER_PTR_SET);
+	}
+
+#endif
+
+	//save buffer
+	filecount = 0;
+	std::string human_sourcefolder = folder_digitalmodel;
+	for (size_t i = 0; i < vecoffsetptr.size()-1; ++i)
+	{
+		evbuffer_ptr ptr_start = vecoffsetptr[i];
+		evbuffer_ptr ptr_end = vecoffsetptr[i+1];
+		if (ptr_start.pos < ptr_end.pos)//数据段
+		{
+			size_t item_bufferlen = ptr_end.pos - ptr_start.pos;
+			if (item_bufferlen < 64)//字符串
+			{
+				std::string partName,partValue;
+				if (!buffer_to_string(in_buffer, &ptr_start, item_bufferlen, partName, partValue, errmsg))
+				{
+					_debug_to(1, ("buffer_to_string error, errmsg = %s"), errmsg.c_str());
+					continue;
+				}
+				else
+				{
+					if (partName == "HumanName")
+					{
+						humanname = partValue;
+						human_sourcefolder += std::string("/");
+						human_sourcefolder += md5::getStringMD5(humanname);//名称MD5加密得到文件夹名称
+					}
+				}
+			}
+			else
+			{
+				std::string filepath = "";
+				if (!buffer_to_file(in_buffer, &ptr_start, item_bufferlen, human_sourcefolder, filepath, errmsg))
+				{
+					_debug_to(1, ("buffer_to_file error, errmsg = %s"), errmsg.c_str());
+					continue;
+				}
+				else
+				{
+					filecount += 1;
+				}
+			}
+		}
+	}
+
+	//update mysql
+	if (filecount > 0)
+	{
+		digitalmysql::humaninfo humanitem_add;
+		humanitem_add.humanname = humanname;
+		humanitem_add.humanid = md5::getStringMD5(humanname);//名称MD5加密得到humanid
+		humanitem_add.contentid = humanitem_add.humanid;
+		humanitem_add.sourcefolder = human_sourcefolder;
+		humanitem_add.available = 0;//不可用
+		humanitem_add.speakspeed = 1.0;
+		humanitem_add.seriousspeed = 0.8;
+		humanitem_add.imagematting;
+		humanitem_add.keyframe = "D:/server/html/static/digitalfile/keyframe/human_default.png";//default image
+		humanitem_add.luckeyframe = "D:/server/html/static/digitalfile/keyframe/human_default.png";//default image
+		humanitem_add.speakmodelpath;
+		humanitem_add.pwgmodelpath;
+		humanitem_add.mouthmodelfile;
+		humanitem_add.facemodelfile;
+
+		bool updatehuman = false;
+		if (digitalmysql::isexisthuman_humanid(humanitem_add.humanid))
+			updatehuman = true;
+		if (!digitalmysql::addhumaninfo(humanitem_add, updatehuman))
+		{
+			errmsg = "add humaninfo to mysql failed...";
+			return false;
+		}
+	}
+	else
+	{
+		errmsg = "parse file data error...";
+		return false;
+	}
+
+	return true;
+}
+
+//添加音频接口(用于音频生成视频)
+bool ParseAddAudio(evkeyvalq* in_header, evbuffer* in_buffer, std::string& audiopath, std::string& errmsg)
+{
+#if 1 //解析form-data类型的数据,前几个步骤相同
+
+	//header
+	bool bfromdata = false;
+	std::string str_boundary_start = "", str_boundary_end = "";
+	std::string str_boundary = evhttp_find_header(in_header, "Content-Type");
+	std::string::size_type idx = str_boundary.find(std::string("multipart/form-data"));
+	if (idx != std::string::npos)
+	{
+		str_boundary = str_replace(str_boundary, "multipart/form-data; boundary=", "");
+		str_boundary_start = std::string("--") + str_boundary;
+		str_boundary_end = std::string("--") + str_boundary + std::string("--");
+		bfromdata = true;
+	}
+
+	//buffer
+	size_t bufflen = evbuffer_get_length(in_buffer);
+	evbuffer_ptr ptr_datastart, ptr_dataend;
+	evbuffer_ptr_set(in_buffer, &ptr_datastart, 0, EVBUFFER_PTR_SET);
+	evbuffer_ptr_set(in_buffer, &ptr_dataend, bufflen, EVBUFFER_PTR_SET);
+
+#if DF_FROMDATA_TOFILE	
+	size_t all_bufferlen = bufflen;
+
+	all_bufferlen = 1024;//mydebug
+	char* all_buffer = (char*)malloc(all_bufferlen);
+	if (all_buffer == nullptr)
+	{
+		errmsg = "malloc all_buffer buffer error...";
+		return false;
+	}
+	memset(all_buffer, 0, sizeof(char) * (all_bufferlen));
+	size_t all_copy = evbuffer_copyout_from(in_buffer, &ptr_datastart, all_buffer, all_bufferlen);
+	if (all_copy == all_bufferlen)
+	{
+		std::string name_all = "addaudio_all";
+		if (!write_file(name_all.c_str(), all_buffer, all_bufferlen))
+		{
+			errmsg = "write file all_buffer buffer error...";
+			free(all_buffer);
+			return false;
+		}
+	}
+	free(all_buffer); all_buffer = nullptr;
+#endif
+
+	//parse buffer
+	evbuffer_ptr ptr_start, ptr_end;
+	ptr_end = evbuffer_search_range(in_buffer, str_boundary_end.c_str(), str_boundary_end.length(), &ptr_datastart, &ptr_dataend);
+	std::vector<evbuffer_ptr> vecoffsetptr;
+	while (1)
+	{
+		ptr_start = evbuffer_search_range(in_buffer, str_boundary_start.c_str(), str_boundary_start.length(), &ptr_datastart, &ptr_dataend);
+		if (ptr_start.pos < 0 || ptr_end.pos < 0)//错误
+			break;
+
+		if (ptr_start.pos < ptr_end.pos)
+		{
+			vecoffsetptr.push_back(ptr_start);
+		}
+		if (ptr_start.pos == ptr_end.pos)
+		{
+			vecoffsetptr.push_back(ptr_start);
+			break;
+		}
+
+		size_t offset = str_boundary_start.length();
+		if (offset <= 0) break;
+		evbuffer_ptr_set(in_buffer, &ptr_datastart, ptr_start.pos + offset, EVBUFFER_PTR_SET);
+	}
+
+#endif
+
+	//save buffer
+	std::string audio_sourcefolder = folder_htmldigital + std::string("/task");
+	for (size_t i = 0; i < vecoffsetptr.size() - 1; ++i)
+	{
+		evbuffer_ptr ptr_start = vecoffsetptr[i];
+		evbuffer_ptr ptr_end = vecoffsetptr[i + 1];
+		if (ptr_start.pos < ptr_end.pos)//数据段
+		{
+			size_t item_bufferlen = ptr_end.pos - ptr_start.pos;
+			if (item_bufferlen < 64)//字符串
+			{
+				std::string partName, partValue;
+				if (!buffer_to_string(in_buffer, &ptr_start, item_bufferlen, partName, partValue, errmsg))
+				{
+					_debug_to(1, ("buffer_to_string error, errmsg = %s"), errmsg.c_str());
+					continue;
+				}
+			}
+			else
+			{
+				std::string filepath = "";
+				if (!buffer_to_file(in_buffer, &ptr_start, item_bufferlen, audio_sourcefolder, filepath, errmsg))
+				{
+					_debug_to(1, ("buffer_to_file error, errmsg = %s"), errmsg.c_str());
+					continue;
+				}
+				else
+				{
+					if (is_audiofile(filepath.c_str()))
+					{
+						audiopath = filepath;
+						break;//only save one file
+					}
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+//添加背景资源接口
+bool ParseAddBackground(evkeyvalq* in_header, evbuffer* in_buffer, size_t& imagecount, size_t& videocount, size_t& audiocount, std::string& errmsg)
+{
+#if 1 //解析form-data类型的数据,前几个步骤相同
+
+	//header
+	bool bfromdata = false;
+	std::string str_boundary_start = "", str_boundary_end = "";
+	std::string str_boundary = evhttp_find_header(in_header, "Content-Type");
+	std::string::size_type idx = str_boundary.find(std::string("multipart/form-data"));
+	if (idx != std::string::npos)
+	{
+		str_boundary = str_replace(str_boundary, "multipart/form-data; boundary=", "");
+		str_boundary_start = std::string("--") + str_boundary;
+		str_boundary_end = std::string("--") + str_boundary + std::string("--");
+		bfromdata = true;
+	}
+
+	//buffer
+	size_t bufflen = evbuffer_get_length(in_buffer);
+	evbuffer_ptr ptr_datastart, ptr_dataend;
+	evbuffer_ptr_set(in_buffer, &ptr_datastart, 0, EVBUFFER_PTR_SET);
+	evbuffer_ptr_set(in_buffer, &ptr_dataend, bufflen, EVBUFFER_PTR_SET);
+
+#if DF_FROMDATA_TOFILE	
+	size_t all_bufferlen = bufflen;
+
+	all_bufferlen = 1024;//mydebug
+	char* all_buffer = (char*)malloc(all_bufferlen);
+	if (all_buffer == nullptr)
+	{
+		errmsg = "malloc all_buffer buffer error...";
+		return false;
+	}
+	memset(all_buffer, 0, sizeof(char) * (all_bufferlen));
+	size_t all_copy = evbuffer_copyout_from(in_buffer, &ptr_datastart, all_buffer, all_bufferlen);
+	if (all_copy == all_bufferlen)
+	{
+		std::string name_all = "addbackground_all";
+		if (!write_file(name_all.c_str(), all_buffer, all_bufferlen))
+		{
+			errmsg = "write file all_buffer buffer error...";
+			free(all_buffer);
+			return false;
+		}
+	}
+	free(all_buffer); all_buffer = nullptr;
+#endif
+
+	//parse buffer
+	evbuffer_ptr ptr_start, ptr_end;
+	ptr_end = evbuffer_search_range(in_buffer, str_boundary_end.c_str(), str_boundary_end.length(), &ptr_datastart, &ptr_dataend);
+	std::vector<evbuffer_ptr> vecoffsetptr;
+	while (1)
+	{
+		ptr_start = evbuffer_search_range(in_buffer, str_boundary_start.c_str(), str_boundary_start.length(), &ptr_datastart, &ptr_dataend);
+		if (ptr_start.pos < 0 || ptr_end.pos < 0)//错误
+			break;
+
+		if (ptr_start.pos < ptr_end.pos)
+		{
+			vecoffsetptr.push_back(ptr_start);
+		}
+		if (ptr_start.pos == ptr_end.pos)
+		{
+			vecoffsetptr.push_back(ptr_start);
+			break;
+		}
+
+		size_t offset = str_boundary_start.length();
+		if (offset <= 0) break;
+		evbuffer_ptr_set(in_buffer, &ptr_datastart, ptr_start.pos + offset, EVBUFFER_PTR_SET);
+	}
+
+#endif
+
+	//save buffer
+	std::vector<std::string> vecImagePath;
+	std::vector<std::string> vecVideoPath;
+	std::vector<std::string> vecAudioPath;
+	std::string background_sourcefolder = folder_htmldigital + std::string("/source");
+	for (size_t i = 0; i < vecoffsetptr.size() - 1; ++i)
+	{
+		evbuffer_ptr ptr_start = vecoffsetptr[i];
+		evbuffer_ptr ptr_end = vecoffsetptr[i + 1];
+		if (ptr_start.pos < ptr_end.pos)//数据段
+		{
+			size_t item_bufferlen = ptr_end.pos - ptr_start.pos;
+			if (item_bufferlen < 64)//字符串
+			{
+				std::string partName, partValue;
+				if (!buffer_to_string(in_buffer, &ptr_start, item_bufferlen, partName, partValue, errmsg))
+				{
+					_debug_to(1, ("buffer_to_string error, errmsg = %s"), errmsg.c_str());
+					continue;
+				}
+			}
+			else
+			{
+				std::string filepath = "";
+				if (!buffer_to_file(in_buffer, &ptr_start, item_bufferlen, background_sourcefolder, filepath, errmsg))
+				{
+					_debug_to(1, ("buffer_to_file error, errmsg = %s"), errmsg.c_str());
+					continue;
+				}
+				else
+				{
+					if (is_imagefile(filepath.c_str()))
+						vecImagePath.push_back(filepath);
+					else if (is_videofile(filepath.c_str()))
+						vecVideoPath.push_back(filepath);
+					else if (is_audiofile(filepath.c_str()))
+						vecAudioPath.push_back(filepath);
+				}
+			}
+		}
+	}
+
+	//update mysql
+	imagecount = vecImagePath.size();
+	for (size_t i = 0; i < imagecount; i++)
+	{
+		//保存数据库
+		digitalmysql::tasksourceinfo add_tasksourceitem;
+		add_tasksourceitem.sourcetype = digitalmysql::source_image;
+		add_tasksourceitem.sourcepath = vecImagePath[i];
+		add_tasksourceitem.sourcekeyframe = "";
+		add_tasksourceitem.createtime = gettimecode();
+
+		bool update = digitalmysql::isexisttasksource_path(vecImagePath[i]);
+		if (!digitalmysql::addtasksource(add_tasksourceitem, update))
+		{
+			errmsg = "add image tasksource to mysql failed...";
+			return false;
+		}
+	}
+	videocount = vecVideoPath.size();
+	for (size_t j = 0; j < videocount; j++)
+	{
+		//获取关键帧
+		std::string sourcekeyframe = vecVideoPath[j];
+		sourcekeyframe = background_sourcefolder + std::string("/") + md5::getStringMD5(sourcekeyframe) + std::string(".png");
+		getimage_fromvideo(vecVideoPath[j], sourcekeyframe);
+
+		//保存数据库
+		digitalmysql::tasksourceinfo add_tasksourceitem;
+		add_tasksourceitem.sourcetype = digitalmysql::source_video;
+		add_tasksourceitem.sourcepath = vecVideoPath[j];
+		add_tasksourceitem.sourcekeyframe = sourcekeyframe;
+		add_tasksourceitem.createtime = gettimecode();
+
+		bool update = digitalmysql::isexisttasksource_path(vecVideoPath[j]);
+		if (!digitalmysql::addtasksource(add_tasksourceitem, update))
+		{
+			errmsg = "add video tasksource to mysql failed...";
+			return false;
+		}
+	}
+	audiocount = vecAudioPath.size();
+	for (size_t k = 0; k < audiocount; k++)
+	{
+		//保存数据库
+		digitalmysql::tasksourceinfo add_tasksourceitem;
+		add_tasksourceitem.sourcetype = digitalmysql::source_audio;
+		add_tasksourceitem.sourcepath = vecAudioPath[k];
+		add_tasksourceitem.sourcekeyframe = "";
+		add_tasksourceitem.createtime = gettimecode();
+
+		bool update = digitalmysql::isexisttasksource_path(vecAudioPath[k]);
+		if (!digitalmysql::addtasksource(add_tasksourceitem, update))
+		{
+			errmsg = "add audio tasksource to mysql failed...";
+			return false;
+		}
+	}
+
+	return true;
 }
 
 //HTTP命令支持跨域访问
@@ -2311,7 +3168,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 		char* post_data = reinterpret_cast<char*>(EVBUFFER_DATA(req->input_buffer));//(char *)EVBUFFER_DATA(req->input_buffer);//注：我们要求的是UTF-8封装的json格式
 		size_t post_len = EVBUFFER_LENGTH(req->input_buffer);
-		if (post_len > 0U) 
+		if (post_data && post_len > 0U)
 		{
 			std::string bodyStr;// = post_data;
 			if (req->body_size > 0U){// && bodyStr.length() >= req->body_size)
@@ -2328,13 +3185,13 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 #else
 			httpReqBodyStr_ansi = bodyStr;
 #endif
-			_debug_to( 0, ("\nhttp server receive message from %s, path is %s, query param is %s, body is %s\n"), hostStr.c_str(), pathStr.c_str(), queryStr.c_str(), httpReqBodyStr_ansi.c_str());
+			_debug_to( 0, ("http server receive message from %s, path is %s, query param is %s, body is %s\n"), hostStr.c_str(), pathStr.c_str(), queryStr.c_str(), httpReqBodyStr_ansi.c_str());
 		}
 
 		//解析路径
 		std::vector<std::string> pathVector;
 		globalSpliteString(pathStr, pathVector, ("/"));
-		std::vector<std::string>::iterator path_it = pathVector.begin();
+//		std::vector<std::string>::iterator path_it = pathVector.begin();
 
 		//解析路径中参数
 		size_t tempPos;
@@ -2342,40 +3199,48 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 		std::vector<std::string> queryVector;
 		globalSpliteString(queryStr, queryVector, ("&"));
 		std::map<std::string, std::string> queryMap;
-		std::string tempParamName, tempParamValue, messageId, paramIdStr;
+		std::string ParamName_utf8, ParamValue_utf8;
 		for (std::vector<std::string>::iterator query_it = queryVector.begin(); query_it != queryVector.end(); query_it++)
 		{
 			tempPos = query_it->find(("="));
 			if (tempPos == std::string::npos || tempPos == 0U) continue;
-			tempParamName = query_it->substr(0U, tempPos);
-			tempParamValue = query_it->substr(tempPos + 1U, query_it->length() - tempPos - 1U);
+			ParamName_utf8 = query_it->substr(0U, tempPos);
+			ParamValue_utf8 = query_it->substr(tempPos + 1U, query_it->length() - tempPos - 1U);
 
-
-			if (tempParamName == ("message")) messageId = tempParamValue;
-			else if (tempParamName == ("overtime")) globalStrToIntDef(const_cast<LPTSTR>(tempParamValue.c_str()), overtime,3,10);
-			queryMap[tempParamName] = tempParamValue;
+			//
+			std::string ParamName_ansi; utf8_to_ansi(ParamName_utf8.c_str(), ParamName_utf8.length(), ParamName_ansi);
+			std::string ParamValue_ansi; utf8_to_ansi(ParamValue_utf8.c_str(), ParamValue_utf8.length(), ParamValue_ansi);
+			queryMap[ParamName_ansi] = ParamValue_ansi;
 		}
 
 		//解析Body参数
 		std::map<std::string, std::string> mapBodyStrParameter;
 		std::map<std::string, int> mapBodyIntParameter;
 		std::map<std::string, double> mapBodyDoubleParameter;
-		json::Value body_val = json::Deserialize((char*)httpReqBodyStr_ansi.c_str());
-		if (body_val.GetType() == json::ObjectVal)
+		if (!httpReqBodyStr_ansi.empty() && !str_existsubstr(pathStr,std::string("Add")))//路径中含Add，则是上传文件接口，Body是fromdata类型
 		{
-			json::Object body_obj = body_val.ToObject();
-			ParseBodyStr(body_obj, mapBodyStrParameter, mapBodyIntParameter, mapBodyDoubleParameter);
+			json::Value body_val = json::Deserialize((char*)httpReqBodyStr_ansi.c_str());
+			if (body_val.GetType() == json::ObjectVal)
+			{
+				json::Object body_obj = body_val.ToObject();
+				ParseBodyStr(body_obj, mapBodyStrParameter, mapBodyIntParameter, mapBodyDoubleParameter);
+			}
+			else
+			{
+				std::string errormsg = "json not formatted successfully...";
+				httpRetStr_ansi = getjson_error(1, errormsg);
+				goto http_reply;
+			}
 		}
-
 		
 		//自定义处理
 		if (req->type == EVHTTP_REQ_POST)
 		{
 
 #if DF_OPEN_PATCH_GET
-			if (pathStr.compare(("/v1/videomaker/playout/importmodel")) == 0)
+			if (pathStr.compare(("/v1/videomaker/playout/ImportModel")) == 0)
 			{
-				httpRetStr_debug = "{POST-/v1/videomaker/playout/importmodel}";
+				httpRetStr_debug = "{POST-/v1/videomaker/playout/ImportModel}";
 				//模型文件入库
 				taskinfo_patchdata NewTask;
 				NewTask.taskid = 1111;
@@ -2390,9 +3255,9 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 				httpRetStr_ansi = "{\"message\":\"task_patchdata 1111 push_back to container\"}";
 			}
-			else if (pathStr.compare(("/v1/videomaker/playout/getmodel")) == 0)
+			else if (pathStr.compare(("/v1/videomaker/playout/GetModel")) == 0)
 			{
-				httpRetStr_debug = "{GET-/v1/videomaker/playout/getmodel}";
+				httpRetStr_debug = "{GET-/v1/videomaker/playout/GetModel}";
 				//获取模型文件
 				taskinfo_getdata NewTask;
 				NewTask.taskid = 2222;
@@ -2416,25 +3281,14 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				bool checkrequest = true;std::string errmsg = "success"; std::string data = "";
 			
 				//1
-				std::string VirtualmanKey = "";
-				if (mapBodyStrParameter.find("VirtualmanKey") != mapBodyStrParameter.end())
-					VirtualmanKey = mapBodyStrParameter["VirtualmanKey"];
-
-				int HasHistory = 0;
-				if (mapBodyIntParameter.find("HasHistory") != mapBodyIntParameter.end())
-				{
-					HasHistory = mapBodyIntParameter["HasHistory"];
-				}
-				else
-				{
-					errmsg = "not find <HasHistory> in body";
-					checkrequest = false;
-				}
+				std::string HumanID = "";
+				if (mapBodyStrParameter.find("HumanID") != mapBodyStrParameter.end())
+					HumanID = mapBodyStrParameter["HumanID"];
 
 				//2
 				if (checkrequest)
 				{
-					httpRetStr_ansi = getjson_humanlistinfo(VirtualmanKey, HasHistory);
+					httpRetStr_ansi = getjson_humanlistinfo(HumanID);
 				}
 				else
 				{
@@ -2442,27 +3296,104 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					result_debug = false;
 				}	
 			}
-			if (pathStr.compare(("/v1/videomaker/playout/HumanHistory")) == 0)
+			else if (pathStr.compare(("/v1/videomaker/playout/AddHuman")) == 0)
+			{
+				httpRetStr_debug = "{POST-/v1/videomaker/playout/AddHuman}";
+				//添加数字人接口
+				bool checkrequest = true; std::string errmsg = "success"; std::string data = "";
+
+				//
+				evkeyvalq* in_header = evhttp_request_get_input_headers(req);
+				evbuffer* in_buffer = evhttp_request_get_input_buffer(req); //body
+				if (in_header && in_buffer)
+				{
+					size_t FileCount = 0;
+					std::string HumanName = "New Human";
+					bool ret = ParseAddHuman(in_header, in_buffer, HumanName, FileCount, errmsg);
+					if (ret)
+					{
+						char temp_buff[256] = { 0 };
+						snprintf(temp_buff, 256, "\"HumanName\":\"%s\",\"FileCount\":%d", HumanName.c_str(), FileCount); data = temp_buff;
+						httpRetStr_ansi = getjson_error(0, errmsg, data);//not too long,can use function
+					}
+					else
+					{
+						httpRetStr_ansi = getjson_error(1, errmsg);
+						result_debug = false;
+					}
+				}
+			}
+			else if (pathStr.compare(("/v1/videomaker/playout/DeleteHuman"))==0)
+			{
+				httpRetStr_debug = "{POST-/v1/videomaker/playout/DeleteHuman}";
+				//删除数字人接口
+				bool checkrequest = true; std::string errmsg = "success"; std::string data = "";
+
+				//1
+				std::string HumanID = "";
+				if (mapBodyStrParameter.find("HumanID") != mapBodyStrParameter.end())
+					HumanID = mapBodyStrParameter["HumanID"];
+				CHECK_EMPTY_STR("HumanID", HumanID, errmsg, checkrequest);
+
+				int _DeleteFile = 0;
+				if (mapBodyIntParameter.find("DeleteFile") != mapBodyIntParameter.end())
+					_DeleteFile = mapBodyIntParameter["DeleteFile"];
+
+				//2
+				if (checkrequest)
+				{
+					bool del_ret = digitalmysql::deletehuman_humanid(HumanID, _DeleteFile, errmsg);
+					httpRetStr_ansi = getjson_error((int)del_ret, errmsg);
+				}
+				else
+				{
+					httpRetStr_ansi = getjson_error(1, errmsg);
+					result_debug = false;
+				}
+
+			}
+			else if (pathStr.compare(("/v1/videomaker/playout/HumanHistory")) == 0)
 			{
 				httpRetStr_debug = "{POST-/v1/videomaker/playout/HumanHistory}";
 				//获取数字人历史数据
 				bool checkrequest = true;std::string errmsg = "success"; std::string data = "";
 
 				//1
-				std::string VirtualmanKey = "";
-				if (mapBodyStrParameter.find("VirtualmanKey") != mapBodyStrParameter.end())
-					VirtualmanKey = mapBodyStrParameter["VirtualmanKey"];
-				std::string OrderKey = "createtime";
-				if (mapBodyStrParameter.find("Key") != mapBodyStrParameter.end())
-					OrderKey = mapBodyStrParameter["Key"];
-				int Aspect = 1;
-				if (mapBodyIntParameter.find("Aspect") != mapBodyIntParameter.end())
-					Aspect = mapBodyIntParameter["Aspect"];
+				digitalmysql::VEC_FILTERINFO vecfilterinfo;
+				std::string Field1 = "", Value1 = "";
+				if (mapBodyStrParameter.find("Field1") != mapBodyStrParameter.end())
+					Field1 = mapBodyStrParameter["Field1"];
+				if (mapBodyStrParameter.find("Value1") != mapBodyStrParameter.end())
+					Value1 = mapBodyStrParameter["Value1"];
+				digitalmysql::filterinfo filteritem1;
+				filteritem1.filterfield = Field1; filteritem1.filtervalue = Value1;
+				vecfilterinfo.push_back(filteritem1);
+
+				std::string Field2 = "", Value2 = "";
+				if (mapBodyStrParameter.find("Field2") != mapBodyStrParameter.end())
+					Field2 = mapBodyStrParameter["Field2"];
+				if (mapBodyStrParameter.find("Value2") != mapBodyStrParameter.end())
+					Value2 = mapBodyStrParameter["Value2"];
+				digitalmysql::filterinfo filteritem2;
+				filteritem2.filterfield = Field2; filteritem2.filtervalue = Value2;
+				vecfilterinfo.push_back(filteritem2);
+
+				int PageSize = 10, PageNum = 1;
+				if (mapBodyIntParameter.find("PageSize") != mapBodyIntParameter.end())
+					PageSize = mapBodyIntParameter["PageSize"];
+				if (mapBodyIntParameter.find("PageNum") != mapBodyIntParameter.end())
+					PageNum = mapBodyIntParameter["PageNum"];
+
+				std::string SortField = "createtime"; int SortValue = 1;
+				if (mapBodyStrParameter.find("SortField") != mapBodyStrParameter.end())
+					SortField = mapBodyStrParameter["SortField"];
+				if (mapBodyIntParameter.find("SortValue") != mapBodyIntParameter.end())
+					SortValue = mapBodyIntParameter["SortValue"];
 
 				//2
 				if (checkrequest)
 				{
-					httpRetStr_ansi = getjson_humanhistoryinfo(VirtualmanKey,OrderKey,Aspect);
+					httpRetStr_ansi = getjson_humanhistoryinfo(vecfilterinfo, SortField, SortValue, PageSize, PageNum);
 				}
 				else
 				{
@@ -2470,59 +3401,80 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					result_debug = false;
 				}
 			}
-			else if (pathStr.compare(("/v1/videomaker/playout/videomake")) == 0)
+			else if (pathStr.compare(("/v1/videomaker/playout/VideoMake")) == 0)
 			{
-				httpRetStr_debug = "{POST-/v1/videomaker/playout/videomake}";
+				httpRetStr_debug = "{POST-/v1/videomaker/playout/VideoMake}";
 				//合成数字人视频
 				bool checkrequest = true;std::string errmsg = "success"; std::string data = "";
 				
 				//1
-				std::string TaskName = "", BackMSg = "";
-				int TaskID = 0; int MakeVedio = 1;
-				double Speed = 1.0;
-				if (mapBodyIntParameter.find("TaskID") != mapBodyIntParameter.end())
-					TaskID = mapBodyIntParameter["TaskID"];
+				std::string TaskName = "";
 				if (mapBodyStrParameter.find("TaskName") != mapBodyStrParameter.end())
 					TaskName = mapBodyStrParameter["TaskName"];
-				if (mapBodyStrParameter.find("BackMSg") != mapBodyStrParameter.end())
-					BackMSg = mapBodyStrParameter["BackMSg"];
-				if (mapBodyIntParameter.find("MakeVedio") != mapBodyIntParameter.end())
-					MakeVedio = mapBodyIntParameter["MakeVedio"];
-				if (mapBodyDoubleParameter.find("Speed") != mapBodyDoubleParameter.end())
-					Speed = mapBodyDoubleParameter["Speed"];
-				_debug_to( 0, ("TaskID=%d,TaskName=%s, BackMSg=%s, MakeVedio=%d, Speed=%.1f\n"), TaskID, TaskName.c_str(), BackMSg.c_str(), MakeVedio, Speed);
-
-				std::string VirtualmanKey = "";
-				if (mapBodyStrParameter.find("VirtualmanKey") != mapBodyStrParameter.end())
-				{
-					VirtualmanKey = mapBodyStrParameter["VirtualmanKey"];
-				}
-				else
-				{
-					errmsg = "not find <VirtualmanKey> in body";
-					checkrequest = false;
-				}
+				CHECK_EMPTY_STR("TaskName", TaskName, errmsg, checkrequest);
+				std::string HumanID = "";
+				if (mapBodyStrParameter.find("HumanID") != mapBodyStrParameter.end())
+					HumanID = mapBodyStrParameter["HumanID"];
+				CHECK_EMPTY_STR("HumanID", HumanID, errmsg, checkrequest);
 				std::string InputSsml = "";
 				if (mapBodyStrParameter.find("InputSsml") != mapBodyStrParameter.end())
-				{
 					InputSsml = mapBodyStrParameter["InputSsml"];
-				}
-				else
-				{
-					errmsg = "not find <InputSsml> in body";
-					checkrequest = false;
-				}
-				int Makesynch = 0;
-				if (mapBodyIntParameter.find("Makesynch") != mapBodyIntParameter.end())
-				{
-					Makesynch = mapBodyIntParameter["Makesynch"];
-				}
-				else
-				{
-					errmsg = "not find <Makesynch> in body";
-					checkrequest = false;
-				}
+				std::string InputAudio = "";
+				if (mapBodyStrParameter.find("InputAudio") != mapBodyStrParameter.end())
+					InputAudio = mapBodyStrParameter["InputAudio"];
+				//
+				std::string Background = "";
+				if (mapBodyStrParameter.find("Background") != mapBodyStrParameter.end())
+					Background = mapBodyStrParameter["Background"];
+				int Front_XPos = 0, Front_YPos = 0, Front_Scale = 100, Front_Rotation = 0;
+				if (mapBodyIntParameter.find("Front_XPos") != mapBodyIntParameter.end())
+					Front_XPos = mapBodyIntParameter["Front_XPos"]; 
+				Front_XPos = (Front_XPos < 0) ? (0) : (Front_XPos);
+				if (mapBodyIntParameter.find("Front_YPos") != mapBodyIntParameter.end())
+					Front_YPos = mapBodyIntParameter["Front_YPos"]; 
+				Front_YPos = (Front_YPos < 0) ? (0) : (Front_YPos);
+				if (mapBodyIntParameter.find("Front_Scale") != mapBodyIntParameter.end())
+					Front_Scale = mapBodyIntParameter["Front_Scale"]; 
+				Front_Scale = (Front_Scale < 10) ? (10) : (Front_Scale);
+				if (mapBodyIntParameter.find("Front_Rotation") != mapBodyIntParameter.end())
+					Front_Rotation = mapBodyIntParameter["Front_Rotation"]; 
+				Front_Rotation = (Front_Rotation < -180) ? (-180) : (Front_Rotation);
 
+				//
+				std::string BackMSg = "";
+				int TaskID = 0; int TaskType = 1, Makesynch = 0, TaskMoodType = 0;
+				double Speed = 1.0;
+				if (mapBodyStrParameter.find("BackMSg") != mapBodyStrParameter.end())
+					BackMSg = mapBodyStrParameter["BackMSg"];
+				if (mapBodyIntParameter.find("TaskID") != mapBodyIntParameter.end())
+					TaskID = mapBodyIntParameter["TaskID"];
+				if (mapBodyIntParameter.find("TaskType") != mapBodyIntParameter.end())
+					TaskType = mapBodyIntParameter["TaskType"];
+				if (mapBodyIntParameter.find("Makesynch") != mapBodyIntParameter.end())
+					Makesynch = mapBodyIntParameter["Makesynch"];
+				if (mapBodyIntParameter.find("TaskMoodType") != mapBodyIntParameter.end())
+					TaskMoodType = mapBodyIntParameter["TaskMoodType"];
+				if (mapBodyDoubleParameter.find("Speed") != mapBodyDoubleParameter.end())
+					Speed = mapBodyDoubleParameter["Speed"];
+
+				//检查任务参数
+				if (TaskType == 1)
+				{
+					CHECK_EMPTY_STR("InputSsml", InputSsml, errmsg, checkrequest);
+					InputAudio = "";
+				}
+				else if (TaskType == 2)
+				{
+					CHECK_EMPTY_STR("InputAudio", InputAudio, errmsg, checkrequest);
+					InputSsml = "";
+				}
+				//检查对应数字人的available状态，为0表示正在训练中
+				else if (!digitalmysql::isavailable_humanid(HumanID))
+				{
+					errmsg = "the digital man is in training...";
+					checkrequest = false;
+				}
+				
 				//2
 				if (checkrequest)
 				{
@@ -2530,7 +3482,9 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					std::string speed = ""; snprintf(tempbuff, 16, "%.1f", Speed); speed = tempbuff;
 					std::string ssmltext_md5 = InputSsml + speed;
 					std::string textguid = md5::getStringMD5(ssmltext_md5);
-					if (!MakeVedio && digitalmysql::isexisttask_textguid(TaskID, TaskName, textguid))
+					bool existtask = digitalmysql::isexisttask_textguid(TaskID, TaskName, textguid);
+
+					if (existtask && TaskType == 0)
 					{
 						httpRetStr_ansi = getjson_runtaskresult(TaskID);
 
@@ -2546,20 +3500,36 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 							sleep(1000);
 						}
 						std::string msgresult = (notifyresult) ? ("success") : ("failed");
-						_debug_to( 0, ("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
+						_debug_to(0, ("Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
 					}
 					else
 					{
+						//获取数字人信息
+						std::string HumanName = "";
+						std::string AcousticModelFullPath = "";	//"../ModelFile/test/TTS/speak/snapshot_iter_1668699.pdz";
+						std::string VcoderModelFullPath = "";	//"../ModelFile/test/TTS/pwg/snapshot_iter_1000000.pdz";
+						std::string DFMModelsPath = "";			// "../ModelFile/test/W2L/file/shenzhen_v3_20230227.dfm";
+						digitalmysql::VEC_HUMANINFO vechumaninfo;
+						digitalmysql::gethumanlistinfo(HumanID, vechumaninfo);
+						if (vechumaninfo.size() > 0)
+						{
+							HumanName = vechumaninfo[0].humanname;
+							AcousticModelFullPath = vechumaninfo[0].speakmodelpath;
+							VcoderModelFullPath = vechumaninfo[0].pwgmodelpath;
+							DFMModelsPath = vechumaninfo[0].facemodelfile;
+						}
+
 						digitalmysql::taskinfo new_taskitem;
-						new_taskitem.speed = Speed;
-						//
 						new_taskitem.taskid = TaskID;
-						new_taskitem.tasktype = MakeVedio;
+						new_taskitem.tasktype = TaskType;
+						new_taskitem.moodtype = TaskMoodType;
+						new_taskitem.speakspeed = Speed;
 						new_taskitem.taskname = TaskName;
 						new_taskitem.taskstate = 0;
 						new_taskitem.taskprogress = 0;
-						new_taskitem.createtime = "";
-						new_taskitem.humanid = VirtualmanKey;
+						new_taskitem.createtime = gettimecode();
+						new_taskitem.humanid = HumanID;
+						new_taskitem.humanname = HumanName;
 						new_taskitem.ssmltext = InputSsml;
 						new_taskitem.audio_path = "";
 						new_taskitem.audio_format = "";
@@ -2571,67 +3541,61 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 						new_taskitem.video_width = 0;
 						new_taskitem.video_height = 0;
 						new_taskitem.video_fps = 0.0;
+						new_taskitem.background_path = Background;
+						new_taskitem.front_XPos = Front_XPos;
+						new_taskitem.front_YPos = Front_YPos;
+						new_taskitem.front_Scale = Front_Scale;
+						new_taskitem.front_Rotation = Front_Rotation;
+
 
 						//添加新合成任务到数据库
 						bool update = (digitalmysql::isexisttask_taskid(TaskID)) ? (true) : (false);
-						_debug_to( 0, ("TaskID=%d, update=%d\n"), TaskID, update);
+						_debug_to( 0, ("BeforeInsert: TaskID=%d, update=%d\n"), TaskID, update);
 						digitalmysql::addtaskinfo(TaskID, new_taskitem, update);
 						digitalmysql::setmergestate(TaskID, 0);//任务状态为进行中
 						digitalmysql::setmergeprogress(TaskID, 0);//合成进度为0
-
-						//获取数字人信息
-						std::string AcousticModelFullPath = "";	//"../0ModelFile/test/TTS/speak/snapshot_iter_1668699.pdz";
-						std::string VcoderModelFullPath = "";	//"../0ModelFile/test/TTS/pwg/snapshot_iter_1000000.pdz";
-						std::string DFMModelsPath = "";			// "../0ModelFile/test/W2L/file/shenzhen_v3_20230227.dfm";
-						std::string OriVideoPath = "";			// "../0ModelFile/test/W2L/video/bule22.mp4";
-						digitalmysql::VEC_HUMANINFO humaninfo;
-						int ncount = digitalmysql::gethumanlistinfo(VirtualmanKey, humaninfo);
-						if (ncount >= 1)
-						{
-							AcousticModelFullPath = humaninfo[0].speakmodelpath;
-							VcoderModelFullPath = humaninfo[0].pwgmodelpath;
-							DFMModelsPath = humaninfo[0].facemodelpath;
-							OriVideoPath = humaninfo[0].videofile;
-						}
+						_debug_to(0, ("AfterInsert: TaskID=%d, update=%d\n"), TaskID, update);
 
 						//添加合成任务到队列
 						bool exist = digitalmysql::isexisttask_taskid(TaskID);
 						if (exist)
 						{
-							std::string task_filename = "task.mp4";
-							char buff[256] = { 0 }; snprintf(buff, 256, "%d.mp4", TaskID); task_filename = buff;
+							std::string TaskVideo_FileName = "task.mp4";
+							char buff[256] = { 0 }; snprintf(buff, 256, "%d.mp4", TaskID); TaskVideo_FileName = buff;
 
-							mergetaskinfo new_mergetaskitem;
-							new_mergetaskitem.tasktype = MakeVedio;
-							new_mergetaskitem.speakspeed = Speed;
-							new_mergetaskitem.taskid = TaskID;
-							new_mergetaskitem.tasktext = InputSsml;
-							new_mergetaskitem.path1 = digitvideo_path1; 
-							new_mergetaskitem.path2 = digitvideo_path2;
-							new_mergetaskitem.filename = task_filename;
-							new_mergetaskitem.VirtualmanKey = VirtualmanKey;
-							new_mergetaskitem.AcousticModelFullPath = AcousticModelFullPath;
-							new_mergetaskitem.VcoderModelFullPath = VcoderModelFullPath;
-							new_mergetaskitem.DFMModelsPath = DFMModelsPath;
-							new_mergetaskitem.OriVideoPath = OriVideoPath;
-							new_mergetaskitem.state = -1;
+							actortaskinfo new_actortaskitem;
+							new_actortaskitem.ActorTaskID = TaskID;
+							new_actortaskitem.ActorTaskType = TaskType;
+							new_actortaskitem.ActorMoodType = TaskMoodType;
+							new_actortaskitem.ActorTaskSpeed = Speed;
+							new_actortaskitem.ActorTaskName = TaskName;
+							new_actortaskitem.ActorTaskText = InputSsml;
+							new_actortaskitem.ActorTaskAudio = InputAudio;
+							new_actortaskitem.ActorTaskHumanID = HumanID;
+							new_actortaskitem.ActorTaskState = -1;
+							new_actortaskitem.Move_Path1 = digitvideo_path1; 
+							new_actortaskitem.Move_Path2 = digitvideo_path2;
+							new_actortaskitem.Move_FileName = TaskVideo_FileName;
+							new_actortaskitem.AcousticModelFullPath = AcousticModelFullPath;
+							new_actortaskitem.VcoderModelFullPath = VcoderModelFullPath;
+							new_actortaskitem.DFMModelsPath = DFMModelsPath;
 
 							if (!Makesynch)//thread run
 							{
-								pthread_mutex_lock(&mutex_mergetaskinfo);
-								Container_mergetaskinfo.insert(std::make_pair(TaskID, new_mergetaskitem));
-								pthread_mutex_unlock(&mutex_mergetaskinfo);
+								pthread_mutex_lock(&mutex_actortaskinfo);
+								Container_actortaskinfo.insert(std::make_pair(TaskID, new_actortaskitem));
+								pthread_mutex_unlock(&mutex_actortaskinfo);
 
-								char temp_buff[1024] = { 0 };
-								snprintf(temp_buff, 1024, "\"TaskID\":\"%d\"", TaskID); data = temp_buff;
+								char temp_buff[256] = { 0 };
+								snprintf(temp_buff, 256, "\"TaskID\":\"%d\"", TaskID); data = temp_buff;
 								httpRetStr_ansi = getjson_error(0, errmsg, data);//not too long,can use function
 							}
 							else   //now run
 							{
 								long long dwS = gettimecount();
-								httpRetStr_ansi = getjson_runtask_now(new_mergetaskitem);
+								httpRetStr_ansi = getjson_runtask_now(new_actortaskitem);
 								long long dwE = gettimecount();
-								_debug_to( 0, ("++++++++++++++任务执行总时间: %d秒++++++++++++++\n"), dwE-dwS);
+								_debug_to( 0, ("++++++++++++++[task_%d]任务执行总时间: %d秒++++++++++++++\n"), TaskID, dwE-dwS);
 							}
 						}
 						else
@@ -2650,43 +3614,27 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					result_debug = false;
 				}
 			}
-			else if (pathStr.compare(("/v1/videomaker/playout/taskstate")) == 0)
+			else if (pathStr.compare(("/v1/videomaker/playout/DeleteTask")) == 0)
 			{
-				httpRetStr_debug = "{POST-/v1/videomaker/playout/taskstate}";
-				//查询数字人合成进度
+				httpRetStr_debug = "{POST-/v1/videomaker/playout/DeleteTask}";
+				//删除数字人任务
 				bool checkrequest = true; std::string errmsg = "success"; std::string data = "";
 
 				//1
 				int TaskID = 0;
 				if (mapBodyIntParameter.find("TaskID") != mapBodyIntParameter.end())
-				{
 					TaskID = mapBodyIntParameter["TaskID"];
-				}
-				else
-				{
-					errmsg = "not find <TaskID> in body";
-					checkrequest = false;
-				}
+				CHECK_EMPTY_NUM("TaskID", TaskID, errmsg, checkrequest);
+
+				int _DeleteFile = 0;
+				if (mapBodyIntParameter.find("DeleteFile") != mapBodyIntParameter.end())
+					_DeleteFile = mapBodyIntParameter["DeleteFile"];
 
 				//2
 				if (checkrequest)
 				{
-					int nprogress = -1, taskstate = 0;
-					if (TaskID != 0)
-					{
-						nprogress = digitalmysql::getmergeprogress(TaskID);
-						taskstate = digitalmysql::getmergestate(TaskID);
-
-						char buff[256] = { 0 };
-						snprintf(buff, 256, "{\"TaskID\": %d,\"State\": %d,\"Progress\": %d}", TaskID, taskstate, nprogress);
-						httpRetStr_ansi = getjson_error(0, errmsg, data);//not too long,can use function
-					}
-					else
-					{
-						errmsg = "TaskID is 0, is invalide ";
-						httpRetStr_ansi = getjson_error(1, errmsg);
-						result_debug = false;
-					}
+					bool del_ret = digitalmysql::deletetask_taskid(TaskID, _DeleteFile, errmsg);
+					httpRetStr_ansi = getjson_error((int)del_ret, errmsg);
 				}
 				else
 				{
@@ -2694,29 +3642,71 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					result_debug = false;
 				}
 			}
-			else if (pathStr.compare(("/v1/videomaker/playout/deletetask")) == 0)
+			else if (pathStr.compare(("/v1/videomaker/playout/AddAudio")) == 0)
 			{
-				httpRetStr_debug = "{POST-/v1/videomaker/playout/deletetask}";
-				//删除数字人任务
+				httpRetStr_debug = "{POST-/v1/videomaker/playout/AddAudio}";
+				//添加音频接口
+				bool checkrequest = true; std::string errmsg = "success"; std::string data = "";
+
+				//
+				evkeyvalq* in_header = evhttp_request_get_input_headers(req);
+				evbuffer* in_buffer = evhttp_request_get_input_buffer(req); //body
+				if (in_header && in_buffer)
+				{
+					std::string AudioPath = "";
+					bool ret = ParseAddAudio(in_header, in_buffer, AudioPath, errmsg);
+					if (ret)
+					{
+						char temp_buff[256] = { 0 };
+						snprintf(temp_buff, 256, "\"AudioPath\":\"%s\"", AudioPath.c_str()); data = temp_buff;
+						httpRetStr_ansi = getjson_error(0, errmsg, data);//not too long,can use function
+					}
+					else
+					{
+						httpRetStr_ansi = getjson_error(1, errmsg);
+						result_debug = false;
+					}
+				}
+			}
+			else if (pathStr.compare(("/v1/videomaker/playout/AddBackground")) == 0)
+			{
+				httpRetStr_debug = "{POST-/v1/videomaker/playout/AddBackground}";
+				//添加背景接口
+				bool checkrequest = true; std::string errmsg = "success"; std::string data = "";
+
+				//
+				evkeyvalq* in_header = evhttp_request_get_input_headers(req);
+				evbuffer* in_buffer = evhttp_request_get_input_buffer(req); //body
+				if (in_header && in_buffer)
+				{
+					size_t imagecnt = 0, videocnt = 0, audiocnt = 0;
+					bool ret = ParseAddBackground(in_header, in_buffer, imagecnt, videocnt, audiocnt, errmsg);
+					if (ret)
+					{
+						char temp_buff[256] = { 0 };
+						snprintf(temp_buff, 256, "\"ImageCount\":%d, \"VideoCount\":%d, \"AudioCount\":%d", imagecnt, videocnt, audiocnt); data = temp_buff;
+						httpRetStr_ansi = getjson_error(0, errmsg, data);//not too long,can use function
+					}
+					else
+					{
+						httpRetStr_ansi = getjson_error(1, errmsg);
+						result_debug = false;
+					}
+				}
+			}
+			else if (pathStr.compare(("/v1/videomaker/playout/BackgroundList")) == 0)
+			{
+				httpRetStr_debug = "{POST-/v1/videomaker/playout/BackgroundList}";
+				//添加背景接口
 				bool checkrequest = true; std::string errmsg = "success"; std::string data = "";
 
 				//1
-				int taskid = 0;
-				if (mapBodyIntParameter.find("TaskID") != mapBodyIntParameter.end())
-				{
-					taskid = mapBodyIntParameter["TaskID"];
-				}
-				else
-				{
-					errmsg = "not find <TaskID> in body";
-					checkrequest = false;
-				}
+
 
 				//2
 				if (checkrequest)
 				{
-					bool del_ret = digitalmysql::deletetask_taskid(taskid, errmsg);
-					httpRetStr_ansi = getjson_error((int)del_ret, errmsg);
+					httpRetStr_ansi = getjson_tasksourcelistinfo();
 				}
 				else
 				{
@@ -2727,72 +3717,70 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 		}
 		else if (req->type == EVHTTP_REQ_GET)
 		{
-			//获取关键帧接口
 			return_databuff = true;
-			if (pathStr.compare(("/v1/videomaker/playout/getkeyframe")) == 0)
+			httpRetStr_debug = "GET";
+			if (pathStr.compare(("/v1/videomaker/playout/GetKeyframe")) == 0)
 			{
-				//测试
-				std::string image_path = "C:/default.png";
+				//获取关键帧接口
+				std::string image_path = "C:/default.png";//测试
 
 				//type
 				std::string file_type = get_file_extension((char*)image_path.c_str());
 				content_type = "image/" + file_type; //告知浏览器文件类型,否则页面无法显示,而是转为下载
 				//data
-				content_databuff = read_file(image_path.c_str(), content_datalen);
-				if (!content_databuff || content_datalen<=0)
+				if (!read_file(image_path.c_str(), content_databuff, content_datalen))
 				{
 					evhttp_send_reply(req, HTTP_NOTFOUND, "read image data error...", 0);//返回未找到页面
 					return;
 				}	
 			}
 		}
+		else if (req->type == EVHTTP_REQ_PUT)
+		{
+			httpRetStr_debug = "PUT";
+			httpRetStr_ansi = "{put request return json}";
+		}
 		else
 		{
-			//自己处理
+			httpRetStr_debug = "Other";
 			httpRetStr_ansi = "{other request return json}";
 		}
 
 		
-		
-
-
-
-		//这里一般我会阻塞等待外部处理
-
-
-
+		//请求返回
+http_reply:
 		if (return_databuff)
 		{
 			//return string to html
 ////////////////////////////////////////////////////////////////////////////////////////////////
 			try
 			{
-				evkeyvalq* header = evhttp_request_get_output_headers(req);
-				if (header) 
+				evkeyvalq* out_header = evhttp_request_get_output_headers(req);
+				if (out_header) 
 				{
-					evhttp_add_header(header, "Access-Control-Allow-Origin", "*");
-					evhttp_add_header(header, "Access-Control-Allow-Methods", "GET,PUT,POST,HEAD,OPTIONS,DELETE,PATCH");
-					evhttp_add_header(header, "Access-Control-Allow-Headers", "Content-Type,Content-Length,Authorization,Accept,X-Requested-With");
-					evhttp_add_header(header, "Access-Control-Max-Age", "3600");
-					evhttp_add_header(header, "Content-Type", content_type.c_str());	
+					evhttp_add_header(out_header, "Access-Control-Allow-Origin", "*");
+					evhttp_add_header(out_header, "Access-Control-Allow-Methods", "GET,PUT,POST,HEAD,OPTIONS,DELETE,PATCH");
+					evhttp_add_header(out_header, "Access-Control-Allow-Headers", "Content-Type,Content-Length,Authorization,Accept,X-Requested-With");
+					evhttp_add_header(out_header, "Access-Control-Max-Age", "3600");
+					evhttp_add_header(out_header, "Content-Type", content_type.c_str());	
 				}
 
-				evbuffer* outbuf = evhttp_request_get_output_buffer(req); //返回的body
+				evbuffer* out_buffer = evhttp_request_get_output_buffer(req); //返回的body
 				if (content_databuff && content_datalen)
 				{
-					evbuffer_add(outbuf, content_databuff, content_datalen);
+					evbuffer_add(out_buffer, content_databuff, content_datalen);
 				}
-				evhttp_send_reply(req, http_code, "proxy", outbuf);
+				evhttp_send_reply(req, http_code, "proxy", out_buffer);
 				free(content_databuff);
 
 				//
 				long long end_time = gettimecount();
 				std::string result = (result_debug) ? ("OK") : ("FAILED");
-				_debug_to( 0, ("\nhttp server: return string output %s, length=%d, result=%s, runtime=[%lld]s\n"), httpRetStr_debug.c_str(), (int)httpRetStr_ansi.length(), result.c_str(), end_time - start_time);
+				_debug_to(1, ("http server: return databuff. debug = %s, result=%s, runtime=[%lld]s\n"), httpRetStr_debug.c_str(), result.c_str(), end_time - start_time);
 			}
 			catch(...)
 			{
-				_debug_to( 1, ("\nhttp server: return databuff throw exception\n"));
+				_debug_to(1, ("http server: return databuff throw exception\n"));
 			}
 
 		}
@@ -2809,47 +3797,58 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 			//回应
 			try 
 			{
-				evkeyvalq* header = evhttp_request_get_output_headers(req);
-				if (header) {
-					evhttp_add_header(header, "Access-Control-Allow-Origin", "*");
-					evhttp_add_header(header, "Access-Control-Allow-Methods", "GET,PUT,POST,HEAD,OPTIONS,DELETE,PATCH");
-					evhttp_add_header(header, "Access-Control-Allow-Headers", "Content-Type,Content-Length,Authorization,Accept,X-Requested-With");
-					evhttp_add_header(header, "Access-Control-Max-Age", "3600");
-					evhttp_add_header(header, "Content-Type", "application/json; charset=UTF-8");
+				evkeyvalq* out_header = evhttp_request_get_output_headers(req);
+				if (out_header) {
+					evhttp_add_header(out_header, "Access-Control-Allow-Origin", "*");
+					evhttp_add_header(out_header, "Access-Control-Allow-Methods", "GET,PUT,POST,HEAD,OPTIONS,DELETE,PATCH");
+					evhttp_add_header(out_header, "Access-Control-Allow-Headers", "Content-Type,Content-Length,Authorization,Accept,X-Requested-With");
+					evhttp_add_header(out_header, "Access-Control-Max-Age", "3600");
+					evhttp_add_header(out_header, "Content-Type", "application/json; charset=UTF-8");
 				}
 
-				struct evbuffer* buf = evbuffer_new();
-				if (!buf) {
-					_debug_to( 1, ("\nhttp server: return string fail for malloc buffer fail\n"));
+				struct evbuffer* out_buffer = evbuffer_new();
+				if (!out_buffer) {
+					_debug_to(1, ("http server: return string fail for malloc buffer fail\n"));
 					return;
 				}
-				evbuffer_add_printf(buf, ("%s\n"), httpRetStr_utf8.c_str());//httpRetStr_utf8是返回的内容
-				evhttp_send_reply(req, http_code, "proxy", buf);
-				evbuffer_free(buf);
+				evbuffer_add_printf(out_buffer, ("%s\n"), httpRetStr_utf8.c_str());//httpRetStr_utf8是返回的内容
+				evhttp_send_reply(req, http_code, "proxy", out_buffer);
+				evbuffer_free(out_buffer);
 
 				//
 				long long end_time = gettimecount();
+				_debug_to(0, ("http server: return string. json = %s, runtime=[%lld]s\n"), httpRetStr_utf8.c_str(), end_time - start_time);
 				std::string result = (result_debug)? ("OK"):("FAILED");
-				_debug_to( 0, ("\nhttp server: return string output %s, length=%d, result=%s, runtime=[%lld]s\n"), httpRetStr_debug.c_str(), (int)httpRetStr_ansi.length(), result.c_str(), end_time-start_time);
+				_debug_to(1, ("http server: return string. debug = %s, result=%s, runtime=[%lld]s\n"), httpRetStr_debug.c_str(), result.c_str(), end_time-start_time);
 			}
 			catch (...) 
 			{
-				_debug_to( 1, ("\nhttp server: return string throw exception\n"));
+				_debug_to(1, ("http server: return string throw exception\n"));
 			}
 
 		}	
 	}
 	catch (...) {
-		_debug_to( 1, ("\nhttp server handler throw exception\n"));
+		_debug_to(1, ("http server handler throw exception\n"));
 	}
 }
 #endif
 
+void setcmdwndsize(int col, int row)
+{
+	char cmd[64] = {0};
+	sprintf(cmd, "mode con cols=%d lines=%d", col, row);
+	system(cmd);
+}
+
 int main()
 {
+	setcmdwndsize(160, 40);
+
 	std::string configpath = getexepath();
 	configpath = str_replace(configpath, std::string("\\"), std::string("/")); configpath += "/config.txt";
-	_debug_to(0, ("COFIG PATH=%s\n"), configpath.c_str());
+	std::string configpath_utf8; ansi_to_utf8(configpath.c_str(), configpath.length(), configpath_utf8);
+	_debug_to(0, ("COFIG PATH=%s\n"), configpath_utf8.c_str());
 	if (!getconfig_global(configpath))
 	{
 		_debug_to(1, ("GLOBAL config load failed,please check <config.txt> \n"));
@@ -2885,7 +3884,6 @@ int main()
 	}
 	g_RabbitmqSender = new nsRabbitmq::cwRabbitmqPublish(rabbitmq_ip, rabbitmq_port, rabbitmq_user, rabbitmq_passwd, nullptr, nullptr);
 
-
 	//初始化
 	httpServer::complex_httpServer server;
 	int httpPort = 8081;//监听端口
@@ -2901,7 +3899,7 @@ int main()
 
 	//初始化Actor容器
 	pthread_mutex_init(&mutex_actorinfo, NULL);
-	pthread_mutex_init(&mutex_mergetaskinfo, NULL);
+	pthread_mutex_init(&mutex_actortaskinfo, NULL);
 	_debug_to(1, ("Container_actornode size = %d\n"), Container_actornode.size());
 	ACTORNODE_MAP::iterator itActorNode = Container_actornode.begin();
 	for (itActorNode; itActorNode != Container_actornode.end(); ++itActorNode)
@@ -2970,11 +3968,13 @@ int main()
 }
 #endif
 
+	sendRabbitmqMsg(std::string("httpserver starting..."));
+
 	//keep runing
 	while (1)
 	{
 		char ch[256] = { 0 };
-		_debug_to(1, ("输入'Q'或‘q’退出程序:\n"));
+		printf(("输入'Q'或‘q’退出程序:\n"));
 		gets_s(ch, 255);
 		std::string str; str = ch;
 		if (str.compare("Q") == 0 || str.compare("q") == 0)

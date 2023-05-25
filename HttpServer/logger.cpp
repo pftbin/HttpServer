@@ -6,7 +6,7 @@
 //
 #include <direct.h>
 #include <sys/stat.h>
-static bool create_directory(const char* path)
+static bool _createdirectory(const char* path)
 {
     struct stat st = { 0 };
     if (stat(path, &st) == -1)
@@ -87,7 +87,7 @@ FileWriter::FileWriter(const std::string& filename, int level, bool async)
     , filename_(timeprefix()+filename)
 {
     std::string folder = timefolder();
-    if (create_directory(folder.c_str()))
+    if (_createdirectory(folder.c_str()))
         filename_ = folder + "/" + filename_;
 
     pthread_mutex_init(&mutex_list, NULL);
@@ -125,7 +125,7 @@ void writeToFile(FileWriter& writer, int level, const std::string& str)
     format_str += "\t";
     format_str += str;
     
-    char backchar = str[strlen(str.c_str()) - 1];;
+    char backchar = str[strlen(str.c_str()) - 1];
     if(backchar!='\n') format_str += "\n";
 
     if (level >= writer.log_level)

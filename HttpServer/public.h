@@ -21,8 +21,13 @@
 #include "loghelp.h"
 #define _debug_to printf_tofile
 
-//custom loger
-static FileWriter loger_public("public.log");
+inline std::string& trim(std::string& s)
+{
+    if (s.empty()) { return s; }
+    s.erase(0, s.find_first_not_of(" "));
+    s.erase(s.find_last_not_of(" ") + 1);
+    return s;
+}
 
 //
 void unicode_to_utf8(const wchar_t* in, size_t len, std::string& out);
@@ -49,9 +54,13 @@ void globalCreateGUID(std::string& GuidStr);
 //
 unsigned short Checksum(const unsigned short* buf, int size);
 
+bool str_existsubstr(std::string str, std::string substr);
+
 std::string str_replace(std::string str, std::string old, std::string now);
 
 std::string getnodevalue(std::string info, std::string nodename);
+
+std::string getDispositionValue(const std::string source, int pos, const std::string name);
 
 std::string gettimecode();
 
@@ -59,11 +68,21 @@ long long   gettimecount();
 
 std::string getmessageid();
 
-bool is_existfile(std::string& name);
+bool is_existfile(const char* filename);
+
+bool is_imagefile(const char* filename);
+
+bool is_videofile(const char* filename);
+
+bool is_audiofile(const char* filename);
+
 
 std::string get_file_extension(char* filename);
 
-char* read_file(const char* filename, long& file_size);
+bool read_file(const char* filename, char*& file_buff, long& file_size);
+
+bool write_file(const char* filename, char* file_buff, long file_size);
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -97,20 +116,20 @@ namespace picture
 
     static int GetBMPWidthHeight(const char* path, unsigned int* punWidth, unsigned int* punHeight) 
     {
-        FILE* fp = fopen(path, "rb");
-        if (!fp) {
-            _debug_to(loger_public, 1, ("[GetBMPWidthHeight]:can't open file, %s\n"), path);
+        FILE* pfRead = fopen(path, "rb");
+        if (!pfRead) {
+            _debug_to(1, ("[GetBMPWidthHeight]:can't open file, %s\n"), path);
             return -1; // 打开文件失败
         }
 
         uint8_t header[54];
-        fread(header, sizeof(uint8_t), 54, fp); // 读取bmp文件头
+        fread(header, sizeof(uint8_t), 54, pfRead); // 读取bmp文件头
 
         // 获取宽度和高度
         *punWidth = *(int*)&header[18];
         *punHeight = *(int*)&header[22];
 
-        fclose(fp);
+        fclose(pfRead);
         return 0;
     }
 
@@ -125,18 +144,18 @@ namespace picture
 
         if (fopen_s(&pfRead, path, "rb") != 0)
         {
-            _debug_to(loger_public, 1, ("[GetPNGWidthHeight]:can't open file, %s\n"), path);
+            _debug_to(1, ("[GetPNGWidthHeight]:can't open file, %s\n"), path);
             return -1;
         }
 
         for (int i = 0; i < 4; i++)
             fread(&uc[i], sizeof(unsigned char), 1, pfRead);
         if (MAKEUI(uc[0], uc[1], uc[2], uc[3]) != 0x89504e47)
-            _debug_to(loger_public, 1, ("[GetPNGWidthHeight]:png format error, %s\n"), path);
+            _debug_to(1, ("[GetPNGWidthHeight]:png format error, %s\n"), path);
         for (int i = 0; i < 4; i++)
             fread(&uc[i], sizeof(unsigned char), 1, pfRead);
         if (MAKEUI(uc[0], uc[1], uc[2], uc[3]) != 0x0d0a1a0a)
-            _debug_to(loger_public, 1, ("[GetPNGWidthHeight]:png format error, %s\n"), path);
+            _debug_to(1, ("[GetPNGWidthHeight]:png format error, %s\n"), path);
 
         fseek(pfRead, 16, SEEK_SET);
         for (int i = 0; i < 4; i++)
@@ -146,6 +165,7 @@ namespace picture
             fread(&uc[i], sizeof(unsigned char), 1, pfRead);
         *punHeight = MAKEUI(uc[0], uc[1], uc[2], uc[3]);
 
+        fclose(pfRead);
         return 0;
     }
 
@@ -160,7 +180,7 @@ namespace picture
 
         if (fopen_s(&pfRead, path, "rb") != 0)
         {
-            _debug_to(loger_public, 1, ("[GetJPEGWidthHeight]:can't open file:%s\n"), path);
+            _debug_to(1, ("[GetJPEGWidthHeight]:can't open file:%s\n"), path);
             return -1;
         }
 
@@ -203,7 +223,7 @@ namespace picture
                 fread(&ucHigh, sizeof(char), 1, pfRead);
                 fread(&ucLow, sizeof(char), 1, pfRead);
                 *punWidth = (unsigned int)MAKEUS(ucHigh, ucLow);
-                return 0;
+                Finished = 0;
 
             case M_SOS:
             case M_EOI:
@@ -214,7 +234,7 @@ namespace picture
             default:
                 fread(&ucHigh, sizeof(char), 1, pfRead);
                 fread(&ucLow, sizeof(char), 1, pfRead);
-                _debug_to(loger_public, 1, ("[GetJPEGWidthHeight]:unknown id: 0x%x ;  length=%hd\n"), id, MAKEUS(ucHigh, ucLow));
+                _debug_to(1, ("[GetJPEGWidthHeight]:unknown id: 0x%x ;  length=%hd\n"), id, MAKEUS(ucHigh, ucLow));
                 if (fseek(pfRead, (long)(MAKEUS(ucHigh, ucLow) - 2), SEEK_CUR) != 0)
                     Finished = -2;
                 break;
@@ -222,10 +242,11 @@ namespace picture
         }
 
         if (Finished == -1)
-            _debug_to(loger_public, 1, ("[GetJPEGWidthHeight]:can't find SOF0!\n"));
+            _debug_to(1, ("[GetJPEGWidthHeight]:can't find SOF0!\n"));
         else if (Finished == -2)
-            _debug_to(loger_public, 1, ("[GetJPEGWidthHeight]:jpeg format error!\n"));
+            _debug_to(1, ("[GetJPEGWidthHeight]:jpeg format error!\n"));
 
+        fclose(pfRead);
         return Finished;
     }
 
@@ -261,7 +282,7 @@ namespace picture
             *pWidth = 0; *pHeight = 0;
             *pBitCount = 32;
             format = "";
-            _debug_to(loger_public, 1, ("[GetPicWidthHeight]:only support jpg and png\n"));
+            _debug_to(1, ("[GetPicWidthHeight]:only support jpg and png\n"));
         }
     }
 }
@@ -520,8 +541,8 @@ namespace md5
                 }
             }
             MD5Final(&md5, decrypt);
+            fclose(fp);
         }
-        fclose(fp);
 
 
         std::string result = "";
@@ -656,7 +677,7 @@ namespace base64
     static std::string base64_encode_file(std::string& sfilepath)
     {
         std::string encoded = "";
-        if (!is_existfile(sfilepath)) return encoded;
+        if (!is_existfile(sfilepath.c_str())) return encoded;
 
         long length = 0;
         char* imgBuffer = nullptr;

@@ -38,6 +38,7 @@
     <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
+    <SpectreMitigation>Spectre</SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -88,13 +89,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>./include;./include/pthread;./include/libevent/windows</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
       <LanguageStandard_C>Default</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>./lib/windows/debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
@@ -106,16 +109,18 @@
       <SDLCheck>false</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>./inc;./inc/pthread;./inc/libevent/windows;./inc/mysql;./inc/librabbitmq;./inc/boost;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./inc;./inc/pthread;./inc/libevent/windows;./inc/mysql;./inc/librabbitmq;./inc/boost;./inc/opencv;</AdditionalIncludeDirectories>
       <LanguageStandard_C>Default</LanguageStandard_C>
       <Optimization>Disabled</Optimization>
+      <TreatSpecificWarningsAsErrors>
+      </TreatSpecificWarningsAsErrors>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>false</EnableCOMDATFolding>
       <OptimizeReferences>false</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>./lib/curl/windows/Release;./lib/libevent/windows/Release;./lib/mysql/windows/Release;./lib/librabbitmq/windows/Release;./lib/boost/windows/Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>./lib/curl/windows/Release;./lib/libevent/windows/Release;./lib/mysql/windows/Release;./lib/librabbitmq/windows/Release;./lib/boost/windows/Release;./lib/opencv/windows/Release</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
@@ -168,6 +173,7 @@
     <ClCompile Include="mmRabbitmq.cpp" />
     <ClCompile Include="public.cpp" />
     <ClCompile Include="shareMemory.cpp" />
+    <ClCompile Include="videoOperate.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="digitalEntityJson.h" />
@@ -180,6 +186,7 @@
     <ClInclude Include="mmRabbitmq.h" />
     <ClInclude Include="public.h" />
     <ClInclude Include="shareMemory.h" />
+    <ClInclude Include="videoOperate.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

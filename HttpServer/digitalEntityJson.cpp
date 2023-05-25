@@ -32,7 +32,7 @@ std::string FileItems::writeJson()
 	std::string skeyvalue = "";
 
 	//0
-	for (int i = 0; i < (int)vecFileItems.size(); ++i)
+	for (size_t i = 0; i < vecFileItems.size(); ++i)
 	{
 		std::string vecObjTemp = vecFileItems[i].writeJson();
 		std::string vecObjJson = "{" + vecObjTemp + "}";
@@ -73,7 +73,7 @@ std::string FileGroups::writeJson()
 	std::string skeyvalue = "";
 
 	//0
-	for (int i = 0; i < (int)vecFileGroups.size(); ++i)
+	for (size_t i = 0; i < vecFileGroups.size(); ++i)
 	{
 		std::string vecObjTemp = vecFileGroups[i].writeJson();
 		std::string vecObjJson = "{" + vecObjTemp + "}";
@@ -363,15 +363,16 @@ std::string DigitalMan_Item::writeJson()
 	char buff[BUFF_SZ] = { 0 };
 	std::string skeyvalue = "";
 
-	//1
+	//
+	snprintf(buff, BUFF_SZ, "\"HumanID\":\"%s\" ,", HumanID.c_str()); skeyvalue = buff;
+	sResultJson += skeyvalue;
+	//
 	snprintf(buff, BUFF_SZ, "\"HumanName\":\"%s\" ,", HumanName.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
-
-	//2
-	snprintf(buff, BUFF_SZ, "\"VirtualmanKey\":\"%s\" ,", VirtualmanKey.c_str()); skeyvalue = buff;
+	//
+	snprintf(buff, BUFF_SZ, "\"SpeakSpeed\":%.1f ,", SpeakSpeed); skeyvalue = buff;
 	sResultJson += skeyvalue;
-
-	//3
+	//
 	snprintf(buff, BUFF_SZ, "\"KeyFrame\":{\"Format\":\"%s\",\"Width\": %d,\"Height\": %d,\"BitCount\": %d, ", KeyFrame_Format.c_str(), KeyFrame_Width, KeyFrame_Height, KeyFrame_BitCount); skeyvalue = buff;
 	sResultJson += skeyvalue;
 
@@ -385,9 +386,9 @@ std::string DigitalMan_Item::writeJson()
 	sResultJson += filepath;
 #endif
 
-	//4,select database and add to this class
+	//5,select database and add to this class
 	sResultJson += "\"HumanData\": [";
-	for (int i = 0; i < vecDigitManTaskObj.size(); i++)
+	for (size_t i = 0; i < vecDigitManTaskObj.size(); i++)
 	{
 		sResultJson += vecDigitManTaskObj[i];
 
@@ -406,7 +407,7 @@ std::string DigitalMan_Items::writeJson()
 	std::string skeyvalue = "";
 
 	//0
-	for (int i = 0; i < (int)vecDigitManItems.size(); ++i)
+	for (size_t i = 0; i < vecDigitManItems.size(); ++i)
 	{
 		std::string vecObjTemp = vecDigitManItems[i].writeJson();
 		std::string vecObjJson = "{" + vecObjTemp + "}";
@@ -429,19 +430,36 @@ std::string DigitalMan_Task::writeJson()
 
 	snprintf(buff, BUFF_SZ, "\"TaskID\":%d,", TaskID); skeyvalue = buff;
 	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"TaskType\":%d,", TaskType); skeyvalue = buff;
+	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"TaskMoodType\":%d,", TaskMoodType); skeyvalue = buff;
+	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"TaskName\":\"%s\",", TaskName.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"State\":%d,", TaskState); skeyvalue = buff;
 	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"Progress\":%d,", TaskProgerss); skeyvalue = buff;
 	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"SpeakSpeed\":%.1f,", TaskSpeakSpeed); skeyvalue = buff;
+	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"InputSsml\":\"%s\",", TaskInputSsml.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"Createtime\":\"%s\",", TaskCreateTime.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"HumanID\":\"%s\",", TaskHumanID.c_str()); skeyvalue = buff;
+	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"HumanName\":\"%s\",", TaskHumanName.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
-	snprintf(buff, BUFF_SZ, "\"VirtualmanKey\":\"%s\",", TaskVirtualmanKey.c_str()); skeyvalue = buff;
+
+	snprintf(buff, BUFF_SZ, "\"Background\":\"%s\",", BackgroundFile.c_str()); skeyvalue = buff;
+	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"Front_XPos\":%d,", Front_XPos); skeyvalue = buff;
+	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"Front_YPos\":%d,", Front_YPos); skeyvalue = buff;
+	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"Front_Scale\":%d,", Front_Scale); skeyvalue = buff;
+	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"Front_Rotation\":%d,", Front_Rotation); skeyvalue = buff;
 	sResultJson += skeyvalue;
 
 	snprintf(buff, BUFF_SZ, "\"KeyFrame\":{\"Format\":\"%s\",\"Width\": %d,\"Height\": %d,\"BitCount\": %d, ", KeyFrame_Format.c_str(), KeyFrame_Width, KeyFrame_Height, KeyFrame_BitCount); skeyvalue = buff;
@@ -472,8 +490,8 @@ std::string DigitalMan_Tasks::writeJson()
 	char buff[BUFF_SZ] = { 0 };
 	std::string skeyvalue = "";
 
-	//0
-	for (int i = 0; i < (int)vecDigitManTasks.size(); ++i)
+	//1
+	for (size_t i = 0; i < vecDigitManTasks.size(); ++i)
 	{
 		std::string vecObjTemp = vecDigitManTasks[i].writeJson();
 		std::string vecObjJson = "{" + vecObjTemp + "}";
@@ -485,3 +503,55 @@ std::string DigitalMan_Tasks::writeJson()
 
 	return sResultJson;
 }
+
+//===========================================================================================================================================
+std::string DigitalMan_TaskSource::writeJson()
+{
+	std::string sResultJson = "";
+	char buff[BUFF_SZ] = { 0 };
+	std::string skeyvalue = "";
+
+	if (TaskSource_Type == 0)//image
+	{
+		snprintf(buff, BUFF_SZ, "\"ImageFile\":\"%s\"", TaskSource_FilePath.c_str()); skeyvalue = buff;//last no ","
+		sResultJson += skeyvalue;
+	}
+
+	if (TaskSource_Type == 1)//video
+	{
+		snprintf(buff, BUFF_SZ, "\"VideoFile\":\"%s\",", TaskSource_FilePath.c_str()); skeyvalue = buff;
+		sResultJson += skeyvalue;
+		snprintf(buff, BUFF_SZ, "\"KeyFrameFile\":\"%s\"", TaskSource_KeyFrame.c_str()); skeyvalue = buff;//last no ","
+		sResultJson += skeyvalue;
+	}
+
+	if (TaskSource_Type == 2)//audio
+	{
+		snprintf(buff, BUFF_SZ, "\"AudioFile\":\"%s\"", TaskSource_FilePath.c_str()); skeyvalue = buff;//last no ","
+		sResultJson += skeyvalue;
+	}
+
+	return sResultJson;
+}
+
+std::string DigitalMan_TaskSources::writeJson()
+{
+	std::string sResultJson = "";
+	char buff[BUFF_SZ] = { 0 };
+	std::string skeyvalue = "";
+
+	//1
+	for (size_t i = 0; i < vecDigitManTaskSources.size(); ++i)
+	{
+		std::string vecObjTemp = vecDigitManTaskSources[i].writeJson();
+		std::string vecObjJson = "{" + vecObjTemp + "}";
+
+		sResultJson += vecObjJson;
+		if (i != vecDigitManTaskSources.size() - 1)//last no ","
+			sResultJson += ",";
+	}
+
+	return sResultJson;
+}
+
+
