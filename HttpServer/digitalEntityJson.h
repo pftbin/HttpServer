@@ -137,6 +137,8 @@ public:
 	std::string HumanID;
 	std::string HumanName;
 	double		SpeakSpeed;
+	std::string Foreground;
+	std::string Background;
 	std::string KeyFrame_Format;
 	int			KeyFrame_Width;
 	int			KeyFrame_Height;
@@ -207,7 +209,8 @@ public:
 	std::string TaskHumanID;
 	std::string TaskHumanName;
 
-	std::string BackgroundFile;
+	std::string Foreground;
+	std::string Background;
 	int			Front_XPos;
 	int			Front_YPos;
 	int			Front_Scale;

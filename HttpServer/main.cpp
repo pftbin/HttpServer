@@ -261,10 +261,10 @@ std::string getjson_humanlistinfo(std::string contentid = "")
 			if (json_obj.HasKey("userCode") && json_obj.HasKey("userToken"))
 			{
 				userCode = json_obj["userCode"].ToString();
-				_debug_to( 0, ("userCode: %s\n"), userCode.c_str());
+				_debug_to(0, ("userCode: %s\n"), userCode.c_str());
 
 				userToken = json_obj["userToken"].ToString();
-				_debug_to( 0, ("userToken: %s\n"), userToken.c_str());
+				_debug_to(0, ("userToken: %s\n"), userToken.c_str());
 			}
 			else
 			{
@@ -272,7 +272,7 @@ std::string getjson_humanlistinfo(std::string contentid = "")
 				std::string input = ((char*)outBodyData_gettoken.pBuff);
 				std::string errormsg;
 				utf8_to_ansi(input.c_str(), input.length(), errormsg);
-				_debug_to( 0, ("errormsg: %s\n"), errormsg.c_str());
+				_debug_to(0, ("errormsg: %s\n"), errormsg.c_str());
 
 				//ret
 				result = false;
@@ -669,10 +669,10 @@ void* pthread_patchdata(void* arg)
 					if (json_obj.HasKey("userCode") && json_obj.HasKey("userToken"))
 					{
 						userCode = json_obj["userCode"].ToString();
-						_debug_to( 0, ("userCode: %s\n"), userCode.c_str());
+						_debug_to(0, ("userCode: %s\n"), userCode.c_str());
 
 						userToken = json_obj["userToken"].ToString();
-						_debug_to( 0, ("userToken: %s\n"), userToken.c_str());
+						_debug_to(0, ("userToken: %s\n"), userToken.c_str());
 					}
 					else
 					{
@@ -680,7 +680,7 @@ void* pthread_patchdata(void* arg)
 						std::string result = ((char*)outBodyData_gettoken.pBuff);
 						std::string errormsg;
 						utf8_to_ansi(result.c_str(), result.length(), errormsg);
-						_debug_to( 0, ("errormsg: %s\n"), errormsg.c_str());
+						_debug_to(0, ("errormsg: %s\n"), errormsg.c_str());
 
 						//ret
 						bContinueRun = false;
@@ -732,20 +732,20 @@ void* pthread_patchdata(void* arg)
 					if (json_obj.HasKey("status") && json_obj.HasKey("message"))
 					{
 						nstatus = json_obj["status"].ToInt();
-						_debug_to( 0, ("status: %d\n"), nstatus);
+						_debug_to(0, ("status: %d\n"), nstatus);
 						if (nstatus == 200)
 						{
 							contentId_patch = json_obj["contentId"].ToString();
-							_debug_to( 0, ("contentId: %s\n"), contentId_patch.c_str());
+							_debug_to(0, ("contentId: %s\n"), contentId_patch.c_str());
 
-							_debug_to( 0, ("TaskID: %d, patch data success\n"), FindTask.taskid);
+							_debug_to(0, ("TaskID: %d, patch data success\n"), FindTask.taskid);
 						}
 						else
 						{
 							std::string errmsg = json_obj["message"].ToString();
 							std::string ret_message;
 							utf8_to_ansi(errmsg.c_str(), errmsg.length(), ret_message);
-							_debug_to( 0, ("message: %s\n"), ret_message.c_str());
+							_debug_to(0, ("message: %s\n"), ret_message.c_str());
 						}
 					}
 					else
@@ -754,7 +754,7 @@ void* pthread_patchdata(void* arg)
 						std::string input = ((char*)outBodyData_patchdata.pBuff);
 						std::string errormsg;
 						utf8_to_ansi(input.c_str(), input.length(), errormsg);
-						_debug_to( 0, ("message: %s\n"), errormsg.c_str());
+						_debug_to(0, ("message: %s\n"), errormsg.c_str());
 
 						//ret
 						bContinueRun = false;
@@ -769,7 +769,7 @@ void* pthread_patchdata(void* arg)
 		//pthread_exit(nullptr);//中途退出当前线程
 	}
 
-	_debug_to( 0, ("pthread_patchdata exit...\n"));
+	_debug_to(0, ("pthread_patchdata exit...\n"));
 	return nullptr;
 }
 
@@ -869,10 +869,10 @@ void* pthread_getdata(void* arg)
 					if (json_obj.HasKey("userCode") && json_obj.HasKey("userToken"))
 					{
 						userCode = json_obj["userCode"].ToString();
-						_debug_to( 0, ("userCode: %s\n"), userCode.c_str());
+						_debug_to(0, ("userCode: %s\n"), userCode.c_str());
 
 						userToken = json_obj["userToken"].ToString();
-						_debug_to( 0, ("userToken: %s\n"), userToken.c_str());
+						_debug_to(0, ("userToken: %s\n"), userToken.c_str());
 					}
 					else
 					{
@@ -880,7 +880,7 @@ void* pthread_getdata(void* arg)
 						std::string input = ((char*)outBodyData_gettoken.pBuff);
 						std::string errormsg;
 						utf8_to_ansi(input.c_str(), input.length(), errormsg);
-						_debug_to( 0, ("errormsg: %s\n"), errormsg.c_str());
+						_debug_to(0, ("errormsg: %s\n"), errormsg.c_str());
 
 						//ret
 						bContinueRun = false;
@@ -925,7 +925,7 @@ void* pthread_getdata(void* arg)
 					json::Object json_obj = json_data.ToObject();
 					if (json_obj.HasKey("version_"))
 					{
-						_debug_to( 0, ("TaskID: %d, get data success\n"), FindTask.taskid);
+						_debug_to(0, ("TaskID: %d, get data success\n"), FindTask.taskid);
 
 						//mydebug
 						std::string input_patch_data_ansi, input_patch_data_utf8;
@@ -939,7 +939,7 @@ void* pthread_getdata(void* arg)
 						std::string input = ((char*)outBodyData_getdata.pBuff);
 						std::string errormsg;
 						utf8_to_ansi(input.c_str(), input.length(), errormsg);
-						_debug_to( 0, ("errormsg: %s\n"), errormsg.c_str());
+						_debug_to(0, ("errormsg: %s\n"), errormsg.c_str());
 
 						//ret
 						bContinueRun = false;
@@ -954,7 +954,7 @@ void* pthread_getdata(void* arg)
 		//pthread_exit(nullptr);//中途退出当前线程
 	}
 
-	_debug_to( 0, ("pthread_getdata exit...\n"));
+	_debug_to(0, ("pthread_getdata exit...\n"));
 	return nullptr;
 }
 #endif
@@ -1397,7 +1397,7 @@ bool SendTcpMsg_DGHDR(std::string ip, short port, std::string sendmsg, bool brec
 		serveraddr.sin_addr.s_addr = inet_addr(ip.c_str());
 		if (connect(sfd, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1)
 		{
-			_debug_to( 0, ("addr: %s:%u ,connect failed\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port));
+			_debug_to(0, ("addr: %s:%u ,connect failed\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port));
 			bRet = false;
 		}
 	}
@@ -1424,12 +1424,12 @@ bool SendTcpMsg_DGHDR(std::string ip, short port, std::string sendmsg, bool brec
 		int ret = send(sfd, pbuffer, bufferlen, 0);
 		if (ret <= 0)
 		{
-			_debug_to( 0, ("addr: %s:%u ,send failed: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
+			_debug_to(0, ("addr: %s:%u ,send failed: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
 			bRet = false;
 		}
 		else
 		{
-			_debug_to( 0, ("addr: %s:%u ,send success: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
+			_debug_to(0, ("addr: %s:%u ,send success: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
 		}
 		delete[] pbuffer;
 	}
@@ -1504,7 +1504,7 @@ bool SendTcpMsg_PNPHDR(std::string ip, short port, std::string sendmsg, bool bre
 		serveraddr.sin_addr.s_addr = inet_addr(ip.c_str());
 		if (connect(sfd, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1)
 		{
-			_debug_to( 0, ("addr: %s:%u ,connect failed\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port));
+			_debug_to(0, ("addr: %s:%u ,connect failed\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port));
 			bRet = false;
 		}
 	}
@@ -1536,12 +1536,12 @@ bool SendTcpMsg_PNPHDR(std::string ip, short port, std::string sendmsg, bool bre
 		int ret = send(sfd, pbuffer, bufferlen, 0);
 		if (ret <= 0)
 		{
-			_debug_to( 0, ("addr: %s:%u ,send failed: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
+			_debug_to(0, ("addr: %s:%u ,send failed: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
 			bRet = false;
 		}
 		else
 		{
-			_debug_to( 0, ("addr: %s:%u ,send success: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
+			_debug_to(0, ("addr: %s:%u ,send success: %s\n"), inet_ntoa(serveraddr.sin_addr), ntohs(serveraddr.sin_port), sendmsg.c_str());
 		}
 		delete[] pbuffer;
 	}
@@ -1613,7 +1613,7 @@ std::string getjson_humanlistinfo(std::string humanid = "")
 	//1-getlist
 	digitalmysql::VEC_HUMANINFO vechumaninfo;
 	result = digitalmysql::gethumanlistinfo(humanid, vechumaninfo);
-	_debug_to( 0, ("gethumanlistinfo: vechumaninfo size=%d\n"), vechumaninfo.size());
+	_debug_to(0, ("gethumanlistinfo: vechumaninfo size=%d\n"), vechumaninfo.size());
 	if (!result)
 		errmsg = "gethumanlistinfo from mysql failed";
 
@@ -1637,6 +1637,8 @@ std::string getjson_humanlistinfo(std::string humanid = "")
 		result_item.HumanID = vechumaninfo[i].humanid;
 		result_item.HumanName = vechumaninfo[i].humanname;
 		result_item.SpeakSpeed = vechumaninfo[i].speakspeed;
+		result_item.Foreground = vechumaninfo[i].foreground;
+		result_item.Background = vechumaninfo[i].background;
 		result_item.KeyFrame_Format = format;
 		result_item.KeyFrame_Width = width;
 		result_item.KeyFrame_Height = height;
@@ -1679,7 +1681,7 @@ std::string getjson_humanhistoryinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo
 	//1-getlist
 	int tasktotal = 0; digitalmysql::VEC_TASKINFO vectaskhistory;
 	result = digitalmysql::gettaskhistoryinfo(vecfilterinfo, order_key, order_way, pagesize, pagenum, tasktotal, vectaskhistory);
-	_debug_to( 0, ("get taskhistory size=%d\n"), vectaskhistory.size());
+	_debug_to(0, ("get taskhistory size=%d\n"), vectaskhistory.size());
 	if (!result)
 		errmsg = "gettaskhistoryinfo from mysql failed";
 
@@ -1701,7 +1703,9 @@ std::string getjson_humanhistoryinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo
 		result_item.TaskCreateTime = vectaskhistory[i].createtime;
 		result_item.TaskHumanID = vectaskhistory[i].humanid;
 		result_item.TaskHumanName = vectaskhistory[i].humanname;
-		result_item.BackgroundFile = vectaskhistory[i].background_path;
+		result_item.Foreground = vectaskhistory[i].foreground;
+		result_item.Background = vectaskhistory[i].background;
+
 		result_item.Front_XPos = vectaskhistory[i].front_XPos;
 		result_item.Front_YPos = vectaskhistory[i].front_YPos;
 		result_item.Front_Scale = vectaskhistory[i].front_Scale;
@@ -1910,7 +1914,7 @@ std::string getNotifyMsg_ToRecNode(digitalmysql::taskinfo taskitem)
 				{\"ddr\":\"%s\",\"devid\":\"\",\"offset\":0,\"length\":%d,\"pos\":{\"x\":0,\"y\":0,\"with\":0,\"height\":0}}	\
 				],\"background\":\"%s\",\"msgid\":\"%s\"}",
 		send_videopath.c_str(), taskitem.video_length, 
-		taskitem.background_path.c_str(),messageid.c_str());
+		taskitem.background.c_str(),messageid.c_str());
 	result_msg = msg_buff;
 
 	return result_msg;
@@ -1926,7 +1930,7 @@ std::string getjson_runtaskresult(int taskid)
 	long long dwS = gettimecount();
 	bool ret_waiting = waiting_videomerge(taskid);
 	long long dwE = gettimecount();
-	_debug_to( 0, ("++++++++++++++[task_%d]合成数字人时间: %d秒++++++++++++++\n"), taskid, dwE - dwS);
+	_debug_to(0, ("++++++++++++++[task_%d]合成数字人时间: %d秒++++++++++++++\n"), taskid, dwE - dwS);
 
 	//continue add background
 	if (ret_waiting)
@@ -1944,11 +1948,11 @@ std::string getjson_runtaskresult(int taskid)
 
 					//send message
 					int recv_timeout = taskitem.audio_length/1000 + 60;//音频时长+60秒
-					_debug_to( 0, ("==recv_timeout==  %d\n"), recv_timeout);
+					_debug_to(0, ("==recv_timeout==  %d\n"), recv_timeout);
 					bool result = SendTcpMsg_PNPHDR(playnode_ip, playnode_port, sendmsg, true, recvmsg, recv_timeout);
 					if (result)
 					{
-						_debug_to( 0, ("addr: %s:%u, send playnode message success, TaskID=%d, recv message: %s\n"), playnode_ip.c_str(), playnode_port, taskid, recvmsg.c_str());
+						_debug_to(0, ("addr: %s:%u, send playnode message success, TaskID=%d, recv message: %s\n"), playnode_ip.c_str(), playnode_port, taskid, recvmsg.c_str());
 
 						bool recv_result = false;
 						std::string final_video_path = taskitem.video_path;//if playnode return error,use green background video
@@ -1967,7 +1971,7 @@ std::string getjson_runtaskresult(int taskid)
 										std::string msg_ansi;
 										std::string msg_utf8 = recv_obj["msg"].ToString();
 										utf8_to_ansi(msg_utf8.c_str(), msg_utf8.length(), msg_ansi);
-										_debug_to( 0, ("recv error: %s \n"), msg_ansi.c_str());
+										_debug_to(0, ("recv error: %s \n"), msg_ansi.c_str());
 									}
 								}
 								else
@@ -2034,7 +2038,7 @@ std::string getjson_runtaskresult(int taskid)
 			result_str = getjson_error(1, errmsg);
 		}
 		long long dwE = gettimecount();
-		_debug_to( 0, ("++++++++++++++[task_%d]录制数字人时间: %d秒++++++++++++++\n"), taskid, dwE - dwS);
+		_debug_to(0, ("++++++++++++++[task_%d]录制数字人时间: %d秒++++++++++++++\n"), taskid, dwE - dwS);
 	}
 	else
 	{
@@ -2760,12 +2764,13 @@ bool ParseAddHuman(evkeyvalq* in_header, evbuffer* in_buffer, std::string& human
 		humanitem_add.speakspeed = 1.0;
 		humanitem_add.seriousspeed = 0.8;
 		humanitem_add.imagematting;
-		humanitem_add.keyframe = "D:/server/html/static/digitalfile/keyframe/human_default.png";//default image
-		humanitem_add.luckeyframe = "D:/server/html/static/digitalfile/keyframe/human_default.png";//default image
-		humanitem_add.speakmodelpath;
-		humanitem_add.pwgmodelpath;
-		humanitem_add.mouthmodelfile;
-		humanitem_add.facemodelfile;
+		humanitem_add.keyframe = folder_htmldigital + std::string("/keyframe/default_human.png");//default image
+		humanitem_add.foreground = "";
+		humanitem_add.background = folder_htmldigital + std::string("/keyframe/default_background.png");//default image;
+		humanitem_add.speakmodelpath = "";
+		humanitem_add.pwgmodelpath = "";
+		humanitem_add.mouthmodelfile = "";
+		humanitem_add.facemodelfile = "";
 
 		bool updatehuman = false;
 		if (digitalmysql::isexisthuman_humanid(humanitem_add.humanid))
@@ -3185,7 +3190,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 #else
 			httpReqBodyStr_ansi = bodyStr;
 #endif
-			_debug_to( 0, ("http server receive message from %s, path is %s, query param is %s, body is %s\n"), hostStr.c_str(), pathStr.c_str(), queryStr.c_str(), httpReqBodyStr_ansi.c_str());
+			_debug_to(0, ("http server receive message from %s, path is %s, query param is %s, body is %s\n"), hostStr.c_str(), pathStr.c_str(), queryStr.c_str(), httpReqBodyStr_ansi.c_str());
 		}
 
 		//解析路径
@@ -3471,7 +3476,10 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				//检查对应数字人的available状态，为0表示正在训练中
 				else if (!digitalmysql::isavailable_humanid(HumanID))
 				{
-					errmsg = "the digital man is in training...";
+					if (HumanID.empty())
+						errmsg = "the request humanid is empty...";//前端发起请求偶现
+					else
+						errmsg = "the digital man is in training...";
 					checkrequest = false;
 				}
 				
@@ -3506,6 +3514,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					{
 						//获取数字人信息
 						std::string HumanName = "";
+						std::string Foreground = "";
 						std::string AcousticModelFullPath = "";	//"../ModelFile/test/TTS/speak/snapshot_iter_1668699.pdz";
 						std::string VcoderModelFullPath = "";	//"../ModelFile/test/TTS/pwg/snapshot_iter_1000000.pdz";
 						std::string DFMModelsPath = "";			// "../ModelFile/test/W2L/file/shenzhen_v3_20230227.dfm";
@@ -3514,6 +3523,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 						if (vechumaninfo.size() > 0)
 						{
 							HumanName = vechumaninfo[0].humanname;
+							Foreground = vechumaninfo[0].foreground;
 							AcousticModelFullPath = vechumaninfo[0].speakmodelpath;
 							VcoderModelFullPath = vechumaninfo[0].pwgmodelpath;
 							DFMModelsPath = vechumaninfo[0].facemodelfile;
@@ -3541,7 +3551,8 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 						new_taskitem.video_width = 0;
 						new_taskitem.video_height = 0;
 						new_taskitem.video_fps = 0.0;
-						new_taskitem.background_path = Background;
+						new_taskitem.foreground = Foreground;
+						new_taskitem.background = Background;
 						new_taskitem.front_XPos = Front_XPos;
 						new_taskitem.front_YPos = Front_YPos;
 						new_taskitem.front_Scale = Front_Scale;
@@ -3550,7 +3561,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 						//添加新合成任务到数据库
 						bool update = (digitalmysql::isexisttask_taskid(TaskID)) ? (true) : (false);
-						_debug_to( 0, ("BeforeInsert: TaskID=%d, update=%d\n"), TaskID, update);
+						_debug_to(0, ("BeforeInsert: TaskID=%d, update=%d\n"), TaskID, update);
 						digitalmysql::addtaskinfo(TaskID, new_taskitem, update);
 						digitalmysql::setmergestate(TaskID, 0);//任务状态为进行中
 						digitalmysql::setmergeprogress(TaskID, 0);//合成进度为0
@@ -3595,7 +3606,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 								long long dwS = gettimecount();
 								httpRetStr_ansi = getjson_runtask_now(new_actortaskitem);
 								long long dwE = gettimecount();
-								_debug_to( 0, ("++++++++++++++[task_%d]任务执行总时间: %d秒++++++++++++++\n"), TaskID, dwE-dwS);
+								_debug_to(0, ("++++++++++++++[task_%d]任务执行总时间: %d秒++++++++++++++\n"), TaskID, dwE-dwS);
 							}
 						}
 						else

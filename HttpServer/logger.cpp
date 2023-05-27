@@ -82,20 +82,20 @@ void* pthread_writelog(void* arg)
 }
 
 FileWriter::FileWriter(const std::string& filename, int level, bool async) 
-    : log_level(level)
-    , log_async(async)
-    , filename_(timeprefix()+filename)
+    : log_level_(level)
+    , log_async_(async)
+    , filename_(filename)
+    , folder_(timefolder())
 {
-    std::string folder = timefolder();
-    if (_createdirectory(folder.c_str()))
-        filename_ = folder + "/" + filename_;
+    std::string logfilepath = filename_;
+    if (_createdirectory(folder_.c_str()))
+        logfilepath = folder_ + "/" + timeprefix() + filename_;
+    file_.open(logfilepath, std::ios::out | std::ios::app);
 
     pthread_mutex_init(&mutex_list, NULL);
     int ret = pthread_create(&threadid_writelog, nullptr, pthread_writelog, this);
     if (ret != 0)
-        log_async = false;
-
-    file_.open(filename_, std::ios::out | std::ios::app);
+        log_async_ = false; 
 }
 
 FileWriter::~FileWriter() 
@@ -103,8 +103,27 @@ FileWriter::~FileWriter()
     file_.close();
 }
 
+void FileWriter::resetlogfile()
+{
+    std::string newfolder_ = timefolder();
+    if (newfolder_ != folder_)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);//局部变量，退出函数自动释放
+        file_.flush();
+        file_.close();
+        folder_ = newfolder_;
+
+        //open newfile
+        std::string logfilepath = filename_;
+        if (_createdirectory(folder_.c_str()))
+            logfilepath = folder_ + "/" + timeprefix() + filename_;
+        file_.open(logfilepath, std::ios::out | std::ios::app);
+    }
+}
+
 void FileWriter::writelog(const std::string& log_str)
 {
+    resetlogfile();
     std::lock_guard<std::mutex> lock(mutex_);//局部变量，退出函数自动释放
     
     file_ << log_str;
@@ -128,9 +147,9 @@ void writeToFile(FileWriter& writer, int level, const std::string& str)
     char backchar = str[strlen(str.c_str()) - 1];
     if(backchar!='\n') format_str += "\n";
 
-    if (level >= writer.log_level)
+    if (level >= writer.log_level_)
     {
-        if(writer.log_async)
+        if(writer.log_async_)
             writer.writelog_async(format_str);
         else
             writer.writelog(format_str);

@@ -189,8 +189,8 @@ namespace digitalmysql
 		{
 			OPERATION = "UPDATE";
 			//update
-			snprintf(sql_buff, BUFF_SZ, "update sbt_humansource set humanname='%s',contentid='%s',sourcefolder='%s',available=%d,speakspeed=%.1f,seriousspeed=%.1f,imagematting='%s',keyframe='%s',luckeyframe='%s',speakpath='%s',pwgpath='%s',mouthmodefile='%s',facemodefile='%s' where humanid='%s'",
-				humanitem.humanname.c_str(), humanitem.contentid.c_str(), humanitem.sourcefolder.c_str(), humanitem.available, humanitem.speakspeed, humanitem.seriousspeed, humanitem.imagematting.c_str(), humanitem.keyframe.c_str(), humanitem.luckeyframe.c_str(), humanitem.speakmodelpath.c_str(), humanitem.pwgmodelpath.c_str(), humanitem.mouthmodelfile.c_str(), humanitem.facemodelfile.c_str(),
+			snprintf(sql_buff, BUFF_SZ, "update sbt_humansource set humanname='%s',contentid='%s',sourcefolder='%s',available=%d,speakspeed=%.1f,seriousspeed=%.1f,imagematting='%s',keyframe='%s',foreground='%s',background='%s',speakpath='%s',pwgpath='%s',mouthmodefile='%s',facemodefile='%s' where humanid='%s'",
+				humanitem.humanname.c_str(), humanitem.contentid.c_str(), humanitem.sourcefolder.c_str(), humanitem.available, humanitem.speakspeed, humanitem.seriousspeed, humanitem.imagematting.c_str(), humanitem.keyframe.c_str(), humanitem.foreground.c_str(), humanitem.background.c_str(), humanitem.speakmodelpath.c_str(), humanitem.pwgmodelpath.c_str(), humanitem.mouthmodelfile.c_str(), humanitem.facemodelfile.c_str(),
 				humanitem.humanid.c_str());//update
 		}
 		else
@@ -200,9 +200,9 @@ namespace digitalmysql
 			humanitem.id = next_id;
 
 			//insert 
-			snprintf(sql_buff, BUFF_SZ, "insert into sbt_humansource (id,humanid,humanname,contentid,sourcefolder,available,speakspeed,seriousspeed,imagematting,keyframe,luckeyframe,speakpath,pwgpath,mouthmodefile,facemodefile) values(%d, '%s', '%s', '%s', '%s', %d, %.1f, %.1f, '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
+			snprintf(sql_buff, BUFF_SZ, "insert into sbt_humansource (id,humanid,humanname,contentid,sourcefolder,available,speakspeed,seriousspeed,imagematting,keyframe,foreground,background,speakpath,pwgpath,mouthmodefile,facemodefile) values(%d, '%s', '%s', '%s', '%s', %d, %.1f, %.1f, '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
 				humanitem.id,humanitem.humanid.c_str(), 
-				humanitem.humanname.c_str(), humanitem.contentid.c_str(), humanitem.sourcefolder.c_str(), humanitem.available, humanitem.speakspeed, humanitem.seriousspeed,humanitem.imagematting.c_str(), humanitem.keyframe.c_str(), humanitem.luckeyframe.c_str(), humanitem.speakmodelpath.c_str(), humanitem.pwgmodelpath.c_str(),humanitem.mouthmodelfile.c_str(), humanitem.facemodelfile.c_str());
+				humanitem.humanname.c_str(), humanitem.contentid.c_str(), humanitem.sourcefolder.c_str(), humanitem.available, humanitem.speakspeed, humanitem.seriousspeed,humanitem.imagematting.c_str(), humanitem.keyframe.c_str(), humanitem.foreground.c_str(), humanitem.background.c_str(), humanitem.speakmodelpath.c_str(), humanitem.pwgmodelpath.c_str(),humanitem.mouthmodelfile.c_str(), humanitem.facemodelfile.c_str());
 		}
 
 		//run sql
@@ -331,7 +331,7 @@ namespace digitalmysql
 		char sql_buff[BUFF_SZ] = { 0 };
 		if (deletefile)
 		{
-			snprintf(sql_buff, BUFF_SZ, "select imagematting,mouthmodefile,facemodefile,keyframe,luckeyframe,speakpath,pwgpath from sbt_humansource where humanid = '%s'", humanid.c_str());
+			snprintf(sql_buff, BUFF_SZ, "select imagematting,mouthmodefile,facemodefile,keyframe,foreground,background,speakpath,pwgpath from sbt_humansource where humanid = '%s'", humanid.c_str());
 			_debug_to(loger_mysql, 0, ("[deletehuman_humanid] sql: %s\n"), sql_buff);
 			mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 			if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
@@ -406,9 +406,9 @@ namespace digitalmysql
 
 		char sql_buff[BUFF_SZ] = { 0 };
 		if(humanid.empty())
-			snprintf(sql_buff, BUFF_SZ, "select id,humanid,humanname,contentid,sourcefolder,available,speakspeed,seriousspeed,imagematting,keyframe,luckeyframe,speakpath,pwgpath,mouthmodefile,facemodefile from sbt_humansource");//select	
+			snprintf(sql_buff, BUFF_SZ, "select id,humanid,humanname,contentid,sourcefolder,available,speakspeed,seriousspeed,imagematting,keyframe,foreground,background,speakpath,pwgpath,mouthmodefile,facemodefile from sbt_humansource");//select	
 		else
-			snprintf(sql_buff, BUFF_SZ, "select id,humanid,humanname,contentid,sourcefolder,available,speakspeed,seriousspeed,imagematting,keyframe,luckeyframe,speakpath,pwgpath,mouthmodefile,facemodefile from sbt_humansource where humanid='%s'", humanid.c_str());//select	
+			snprintf(sql_buff, BUFF_SZ, "select id,humanid,humanname,contentid,sourcefolder,available,speakspeed,seriousspeed,imagematting,keyframe,foreground,background,speakpath,pwgpath,mouthmodefile,facemodefile from sbt_humansource where humanid='%s'", humanid.c_str());//select	
 		_debug_to(loger_mysql, 0, ("[gethumanlistinfo] sql: %s\n"), sql_buff);
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
@@ -435,7 +435,8 @@ namespace digitalmysql
 					double row_seriousspeed = atof(row_value(row[i++]).c_str());
 					std::string row_imagematting = row_value(row[i++]);   std::string imagematting_ansi; utf8_to_ansi(row_imagematting.c_str(), row_imagematting.length(), imagematting_ansi);
 					std::string row_keyframe = row_value(row[i++]);       std::string keyframe_ansi; utf8_to_ansi(row_keyframe.c_str(), row_keyframe.length(), keyframe_ansi);
-					std::string row_luckeyframe = row_value(row[i++]);	  std::string luckeyframe_ansi; utf8_to_ansi(row_luckeyframe.c_str(), row_luckeyframe.length(), luckeyframe_ansi);
+					std::string row_foreground = row_value(row[i++]);     std::string foreground_ansi; utf8_to_ansi(row_foreground.c_str(), row_foreground.length(), foreground_ansi);
+					std::string row_background = row_value(row[i++]);     std::string background_ansi; utf8_to_ansi(row_background.c_str(), row_background.length(), background_ansi);
 					std::string row_speakmodelpath = row_value(row[i++]); std::string speakmodelpath_ansi; utf8_to_ansi(row_speakmodelpath.c_str(), row_speakmodelpath.length(), speakmodelpath_ansi);
 					std::string row_pwgmodelpath = row_value(row[i++]);   std::string pwgmodelpath_ansi; utf8_to_ansi(row_pwgmodelpath.c_str(), row_pwgmodelpath.length(), pwgmodelpath_ansi);
 					std::string row_mouthmodelfile = row_value(row[i++]); std::string mouthmodelfile_ansi; utf8_to_ansi(row_mouthmodelfile.c_str(), row_mouthmodelfile.length(), mouthmodelfile_ansi);
@@ -452,7 +453,8 @@ namespace digitalmysql
 					humanitem.seriousspeed = row_seriousspeed;
 					humanitem.imagematting = row_imagematting;
 					humanitem.keyframe = keyframe_ansi;
-					humanitem.luckeyframe = luckeyframe_ansi;
+					humanitem.foreground = foreground_ansi;
+					humanitem.background = background_ansi;
 					humanitem.speakmodelpath = speakmodelpath_ansi;
 					humanitem.pwgmodelpath = pwgmodelpath_ansi;
 					humanitem.mouthmodelfile = mouthmodelfile_ansi;
@@ -521,10 +523,10 @@ namespace digitalmysql
 		{
 			//update
 			OPERATION = "UPDATE";
-			snprintf(sql_buff, BUFF_SZ, "update sbt_doctask set tasktype=%d,moodtype=%d,speakspeed=%.1f,taskname='%s',createtime='%s',humanid='%s',humanname='%s',ssmltext='%s',textguid='%s',audiofile='%s',audioformat='%s',audiolength=%d,videofile='%s',finalvideo='%s',videoformat='%s',videolength=%d,videowidth=%d,videoheight=%d,videofps=%.1f,background='%s',front_xpos=%d,front_ypos=%d,front_scale=%d,front_rotation=%d where taskid=%d",
+			snprintf(sql_buff, BUFF_SZ, "update sbt_doctask set tasktype=%d,moodtype=%d,speakspeed=%.1f,taskname='%s',createtime='%s',humanid='%s',humanname='%s',ssmltext='%s',textguid='%s',audiofile='%s',audioformat='%s',audiolength=%d,videofile='%s',finalvideo='%s',videoformat='%s',videolength=%d,videowidth=%d,videoheight=%d,videofps=%.1f,foreground='%s',background='%s',front_xpos=%d,front_ypos=%d,front_scale=%d,front_rotation=%d where taskid=%d",
 				taskitem.tasktype, taskitem.moodtype, taskitem.speakspeed, taskitem.taskname.c_str(), taskitem.createtime.c_str(), taskitem.humanid.c_str(), taskitem.humanname.c_str(), taskitem.ssmltext.c_str(), textguid.c_str(),
 				taskitem.audio_path.c_str(), taskitem.audio_format.c_str(), taskitem.audio_length,
-				taskitem.video_path.c_str(), taskitem.video_finalpath.c_str(), taskitem.video_format.c_str(), taskitem.video_length, taskitem.video_width, taskitem.video_height, taskitem.video_fps, taskitem.background_path.c_str(), taskitem.front_XPos,taskitem.front_YPos,taskitem.front_Scale,taskitem.front_Rotation,
+				taskitem.video_path.c_str(), taskitem.video_finalpath.c_str(), taskitem.video_format.c_str(), taskitem.video_length, taskitem.video_width, taskitem.video_height, taskitem.video_fps, taskitem.foreground.c_str(), taskitem.background.c_str(), taskitem.front_XPos,taskitem.front_YPos,taskitem.front_Scale,taskitem.front_Rotation,
 				taskid);
 		}
 		else
@@ -533,10 +535,10 @@ namespace digitalmysql
 			OPERATION = "INSERT";
 			taskid = newgetsequencenextvalue("sbt_doctask", &mysql);
 			taskitem.taskid = taskid;
-			snprintf(sql_buff, BUFF_SZ, "insert into sbt_doctask (taskid,tasktype,moodtype,speakspeed,taskname,createtime,humanid,humanname,ssmltext,textguid,audiofile,audioformat,audiolength,videofile,finalvideo,videoformat,videolength,videowidth,videoheight,videofps,background,front_xpos,front_ypos,front_scale,front_rotation) values(%d, %d, %d, %.1f, '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', %d, '%s', '%s', '%s', %d, %d, %d, %.1f,'%s', %d, %d, %d, %d)",
+			snprintf(sql_buff, BUFF_SZ, "insert into sbt_doctask (taskid,tasktype,moodtype,speakspeed,taskname,createtime,humanid,humanname,ssmltext,textguid,audiofile,audioformat,audiolength,videofile,finalvideo,videoformat,videolength,videowidth,videoheight,videofps,foreground,background,front_xpos,front_ypos,front_scale,front_rotation) values(%d, %d, %d, %.1f, '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', %d, '%s', '%s', '%s', %d, %d, %d, %.1f,'%s','%s', %d, %d, %d, %d)",
 		taskid, taskitem.tasktype, taskitem.moodtype, taskitem.speakspeed, taskitem.taskname.c_str(), taskitem.createtime.c_str(), taskitem.humanid.c_str(), taskitem.humanname.c_str(), taskitem.ssmltext.c_str(), textguid.c_str(),
 				taskitem.audio_path.c_str(), taskitem.audio_format.c_str(), taskitem.audio_length,
-				taskitem.video_path.c_str(), taskitem.video_finalpath.c_str(), taskitem.video_format.c_str(), taskitem.video_length, taskitem.video_width, taskitem.video_height, taskitem.video_fps, taskitem.background_path.c_str(), taskitem.front_XPos, taskitem.front_YPos, taskitem.front_Scale, taskitem.front_Rotation );
+				taskitem.video_path.c_str(), taskitem.video_finalpath.c_str(), taskitem.video_format.c_str(), taskitem.video_length, taskitem.video_width, taskitem.video_height, taskitem.video_fps, taskitem.foreground.c_str(), taskitem.background.c_str(), taskitem.front_XPos, taskitem.front_YPos, taskitem.front_Scale, taskitem.front_Rotation );
 		}
 
 		//run sql
@@ -575,7 +577,7 @@ namespace digitalmysql
 		}
 
 		char sql_buff[BUFF_SZ] = { 0 };
-		snprintf(sql_buff, BUFF_SZ, "select tasktype,moodtype,speakspeed,taskname,state,progress,createtime,humanid,humanname,ssmltext,audiofile,audioformat,audiolength,videofile,finalvideo,videoformat,videolength,videowidth,videoheight,videofps,background,front_xpos,front_ypos,front_scale,front_rotation from sbt_doctask where taskid=%d", taskid);//select	
+		snprintf(sql_buff, BUFF_SZ, "select tasktype,moodtype,speakspeed,taskname,state,progress,createtime,humanid,humanname,ssmltext,audiofile,audioformat,audiolength,videofile,finalvideo,videoformat,videolength,videowidth,videoheight,videofps,foreground,background,front_xpos,front_ypos,front_scale,front_rotation from sbt_doctask where taskid=%d", taskid);//select	
 		_debug_to(loger_mysql, 0, ("[gettaskinfo] sql: %s\n"), sql_buff);
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
@@ -610,6 +612,7 @@ namespace digitalmysql
 				int			row_videowidth  = atoi(row_value(row[i++]).c_str());
 				int			row_videoheight = atoi(row_value(row[i++]).c_str());
 				double		row_videofps	= atof(row_value(row[i++]).c_str());
+				std::string row_foreground = row_value(row[i++]).c_str();
 				std::string row_background = row_value(row[i++]).c_str();
 				int			row_front_xpos = atoi(row_value(row[i++]).c_str());
 				int			row_front_ypos = atoi(row_value(row[i++]).c_str());
@@ -637,7 +640,8 @@ namespace digitalmysql
 				taskitem.video_width = row_videowidth;
 				taskitem.video_height = row_videoheight;
 				taskitem.video_fps = row_videofps;
-				taskitem.background_path = row_background;
+				taskitem.foreground = row_foreground;
+				taskitem.background = row_background;
 				taskitem.front_XPos = row_front_xpos;
 				taskitem.front_YPos = row_front_ypos;
 				taskitem.front_Scale = row_front_scale;
@@ -879,7 +883,7 @@ namespace digitalmysql
 			_debug_to(loger_mysql, 1, ("[gettaskhistoryinfo]MySQL select tasktotaltotal failed: %s\n"), error.c_str());
 		}
 
-		std::string str_sqlselect = "select taskid,tasktype,moodtype,speakspeed,taskname,state,progress,createtime,humanid,humanname,ssmltext,audiofile,audioformat,audiolength,videofile,finalvideo,videoformat,videolength,videowidth,videoheight,videofps,background,front_xpos,front_ypos,front_scale,front_rotation from sbt_doctask";
+		std::string str_sqlselect = "select taskid,tasktype,moodtype,speakspeed,taskname,state,progress,createtime,humanid,humanname,ssmltext,audiofile,audioformat,audiolength,videofile,finalvideo,videoformat,videolength,videowidth,videoheight,videofps,foreground,background,front_xpos,front_ypos,front_scale,front_rotation from sbt_doctask";
 		str_sqlselect += str_where;
 		str_sqlselect += str_order;
 		str_sqlselect += str_limit;
@@ -920,6 +924,7 @@ namespace digitalmysql
 					int			row_videowidth = atoi(row_value(row[i++]).c_str());
 					int			row_videoheight = atoi(row_value(row[i++]).c_str());
 					double		row_videofps = atof(row_value(row[i++]).c_str());
+					std::string row_foreground = row_value(row[i++]).c_str();
 					std::string row_background = row_value(row[i++]).c_str();
 					int			row_front_xpos = atoi(row_value(row[i++]).c_str());
 					int			row_front_ypos = atoi(row_value(row[i++]).c_str());
@@ -948,7 +953,8 @@ namespace digitalmysql
 					historyitem.video_width = row_videowidth;
 					historyitem.video_height = row_videoheight;
 					historyitem.video_fps = row_videofps;
-					historyitem.background_path = row_background;
+					historyitem.foreground = row_foreground;
+					historyitem.background = row_background;
 					historyitem.front_XPos = row_front_xpos;
 					historyitem.front_YPos = row_front_ypos;
 					historyitem.front_Scale = row_front_scale;

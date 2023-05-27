@@ -21,7 +21,8 @@ namespace digitalmysql
 		double		seriousspeed;
 		std::string imagematting;
 		std::string keyframe;
-		std::string luckeyframe;
+		std::string foreground;
+		std::string background;
 		std::string speakmodelpath;
 		std::string pwgmodelpath;
 		std::string mouthmodelfile;
@@ -40,7 +41,8 @@ namespace digitalmysql
 			seriousspeed = 0.8;
 			imagematting = "";
 			keyframe = "";
-			luckeyframe = "";
+			foreground = "";
+			background = "";
 			speakmodelpath = "";
 			pwgmodelpath = "";
 			mouthmodelfile = "";
@@ -81,7 +83,8 @@ namespace digitalmysql
 		int			video_height;
 		double		video_fps;
 
-		std::string background_path;
+		std::string foreground;
+		std::string background;
 		int			front_XPos;
 		int			front_YPos;
 		int			front_Scale;
@@ -112,7 +115,8 @@ namespace digitalmysql
 			video_height = 0;
 			video_fps = 0.0;
 
-			background_path = "";
+			foreground = "";
+			background = "";
 			front_XPos = 0;
 			front_YPos = 0;
 			front_Scale = 100;

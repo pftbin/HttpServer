@@ -373,6 +373,12 @@ std::string DigitalMan_Item::writeJson()
 	snprintf(buff, BUFF_SZ, "\"SpeakSpeed\":%.1f ,", SpeakSpeed); skeyvalue = buff;
 	sResultJson += skeyvalue;
 	//
+	snprintf(buff, BUFF_SZ, "\"Foreground\":\"%s\" ,", Foreground.c_str()); skeyvalue = buff;
+	sResultJson += skeyvalue;
+	//
+	snprintf(buff, BUFF_SZ, "\"Background\":\"%s\" ,", Background.c_str()); skeyvalue = buff;
+	sResultJson += skeyvalue;
+	//
 	snprintf(buff, BUFF_SZ, "\"KeyFrame\":{\"Format\":\"%s\",\"Width\": %d,\"Height\": %d,\"BitCount\": %d, ", KeyFrame_Format.c_str(), KeyFrame_Width, KeyFrame_Height, KeyFrame_BitCount); skeyvalue = buff;
 	sResultJson += skeyvalue;
 
@@ -451,7 +457,9 @@ std::string DigitalMan_Task::writeJson()
 	snprintf(buff, BUFF_SZ, "\"HumanName\":\"%s\",", TaskHumanName.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
 
-	snprintf(buff, BUFF_SZ, "\"Background\":\"%s\",", BackgroundFile.c_str()); skeyvalue = buff;
+	snprintf(buff, BUFF_SZ, "\"Foreground\":\"%s\",", Foreground.c_str()); skeyvalue = buff;
+	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"Background\":\"%s\",", Background.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"Front_XPos\":%d,", Front_XPos); skeyvalue = buff;
 	sResultJson += skeyvalue;
