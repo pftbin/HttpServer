@@ -1,5 +1,85 @@
 #include "public.h"
 
+//create folder
+#ifdef _WIN32
+    #include <direct.h>
+    #define mkdir(x,y) _mkdir(x)
+    bool create_directory(const char* path)
+    {
+        int status = 0;
+        status = mkdir(path);
+        if (status == 0)
+        {
+            std::cout << "Directory created at " << path << std::endl;
+            return true;
+        }
+        else
+        {
+            std::cerr << "Unable to create directory at " << path << std::endl;
+            return false;
+        }
+    }
+    bool folderExists(const char* folderPath) {
+        DWORD attributes = GetFileAttributesA(folderPath);
+        return (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY));
+    }
+
+#else
+
+#include <sys/stat.h>
+    bool create_directory(const char* path)
+    {
+        int status = 0;
+        status = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        if (status == 0)
+        {
+            std::cout << "Directory created at " << path << std::endl;
+            return true;
+        }
+        else
+        {
+            std::cerr << "Unable to create directory at " << path << std::endl;
+            return false;
+        }
+    }
+    bool folderExists(const char* folderPath) {
+        struct stat info;
+        if (stat(folderPath, &info) != 0) {
+            return false;
+        }
+        return (info.st_mode & S_IFDIR);
+    }
+
+#endif
+bool create_directories(const char* path)
+{
+    if (folderExists(path))//create exist folder will false
+        return true;
+    std::string total_path = path;
+    if (total_path.find(':') == std::string::npos)//must absolute path
+        return false;
+
+    std::string current_path = "";
+    std::string delimiter = "/";
+    size_t pos = 0;
+    std::string token;
+
+    int ntimes = 0;
+    while ((pos = total_path.find(delimiter)) != std::string::npos)
+    {
+        token = total_path.substr(0, pos);
+        current_path += token + delimiter;
+        if (current_path.length() > 3 && !folderExists(current_path.c_str()))//a= D:/ not need create,b=create exist folder will false
+            create_directory(current_path.c_str());
+        total_path.erase(0, pos + delimiter.length());
+
+        if (++ntimes > 10)//keep right
+            break;
+    }
+
+    return create_directory(path);
+}
+
 //
 void unicode_to_utf8(const wchar_t* in, size_t len, std::string& out)
 {
@@ -306,6 +386,15 @@ bool str_existsubstr(std::string str, std::string substr)
     return false;
 }
 
+bool str_prefixsame(const std::string str, const std::string prefix)
+{
+    int len = prefix.length();
+    if (std::strncmp(str.c_str(), prefix.c_str(), len) == 0)
+        return true;
+
+    return false;
+}
+
 std::string str_replace(std::string str, std::string old, std::string now)
 {
     if (str.empty())
@@ -507,15 +596,39 @@ bool is_audiofile(const char* filename)
     return false;
 }
 
-std::string get_file_extension(char* filename)
-{
-    std::string ret_str;
-    char* dot = strrchr(filename, '.');
-    if (!dot || dot == filename) 
-        return ret_str;
-    ret_str = dot + 1;
 
-    return ret_str;
+std::string get_path_folder(std::string filepath)
+{
+    std::string folder = "";
+    //从最后一个反斜杠或正斜杠处分离目录名
+    size_t pos = filepath.find_last_of("/\\");
+    if (pos != std::string::npos) { 
+        folder = filepath.substr(0, pos);
+    }
+    return folder;
+}
+
+std::string get_path_name(std::string filepath)
+{
+    std::string name = "";
+    //从最后一个反斜杠或正斜杠处分离文件名
+    size_t pos = filepath.find_last_of("\\/");
+    if(pos != std::string::npos)
+        name = filepath.substr(pos + 1);
+
+    return name;
+}
+
+std::string get_path_extension(std::string filepath)
+{
+    std::string extension;
+    //从最后一个点处分离文件名
+    char* dot = (char*)strrchr(filepath.c_str(), '.');
+    if (!dot || dot == filepath.c_str())
+        return extension;
+    extension = dot + 1;
+
+    return extension;
 }
 
 bool read_file(const char* filename, char*& file_buff, long& file_size)

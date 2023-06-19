@@ -38,8 +38,9 @@ extern "C" {
 struct sockaddr;
 struct evconnlistener;
 
-/**
-   A callback that we invoke when a listener has a new connection.
+/**@file event2/listener.h
+
+   @brief A callback that we invoke when a listener has a new connection.
 
    @param listener The evconnlistener
    @param fd The new file descriptor
@@ -97,6 +98,27 @@ typedef void (*evconnlistener_errorcb)(struct evconnlistener *, void *);
  * This is only available on Linux and kernel 3.9+
  */
 #define LEV_OPT_REUSEABLE_PORT		(1u<<7)
+/** Flag: Indicates that the listener wants to work only in IPv6 socket.
+ *
+ * According to RFC3493 and most Linux distributions, default value is to
+ * work in IPv4-mapped mode. If there is a requirement to bind same port
+ * on same ip addresses but different handlers for both IPv4 and IPv6,
+ * it is required to set IPV6_V6ONLY socket option to be sure that the
+ * code works as expected without affected by bindv6only sysctl setting in
+ * system.
+ *
+ * This socket option on Windows is instead enabled by default.
+ */
+#define LEV_OPT_BIND_IPV6ONLY		(1u<<8)
+/** Flag: Indicates that the listener wants to work only in both IPv4 and 
+ * IPv6 socket.
+ *
+ * This flag exists as copmlement to LEV_OPT_BIND_IPV6ONLY to account for
+ * the different default behaviour on Windows so that the code can
+ * explicitly request the socket to support both modes without having
+ * to rely on the default option.
+ */
+#define LEV_OPT_BIND_IPV4_AND_IPV6		(1u<<9)
 
 /**
    Allocate a new evconnlistener object to listen for incoming TCP connections
@@ -131,7 +153,7 @@ struct evconnlistener *evconnlistener_new(struct event_base *base,
    @param flags Any number of LEV_OPT_* flags
    @param backlog Passed to the listen() call to determine the length of the
       acceptable connection backlog.  Set to -1 for a reasonable default.
-   @param addr The address to listen for connections on.
+   @param sa The address to listen for connections on.
    @param socklen The length of the address.
  */
 EVENT2_EXPORT_SYMBOL

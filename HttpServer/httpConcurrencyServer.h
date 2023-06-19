@@ -2,13 +2,17 @@
 
 #if defined WIN32  //SYS-WIN32
 
-
+//
+#include <string>
+#include <iostream>
 #include <WinSock2.h>
 
+//LIBEVENT
 #include "event.h"
 #include "event2/event.h"
 #include "event2/buffer.h"
 #include "event2/bufferevent.h"
+#include "event2/bufferevent_ssl.h"
 #include "event2/buffer_compat.h"
 #include "event2/bufferevent_compat.h"
 #include "evhttp.h"
@@ -19,14 +23,29 @@
 #include "event2/listener.h"
 #include "event2/thread.h"
 
-//
-#include <string>
-#include <iostream>
+#pragma comment(lib,"event.lib")
+#pragma comment(lib,"event_core.lib")
+#pragma comment(lib,"event_extra.lib")
+#pragma comment(lib,"event_openssl.lib")
+
+//OpenSSL
+#include "openssl/ssl.h"
+#include "openssl/err.h"
+#pragma comment(lib,"libssl.lib")
+#pragma comment(lib,"libcrypto.lib")
+
+
+//PTHREAD
+#define HAVE_STRUCT_TIMESPEC
+#include <pthread.h>
 
 namespace httpServer
 {
-	typedef void(*http_cb_Func)(struct evhttp_request *, void *);//定义函数指针
+	//openssl
+	void openssl_common_init(std::string certificate_chain, std::string private_key);
 
+	//libevent
+	typedef void(*http_cb_Func)(struct evhttp_request *, void *);//定义函数指针
 	struct httpThread
 	{
 		HANDLE  threadhandle;
@@ -48,8 +67,6 @@ namespace httpServer
             mainWindow = nullptr;
 		}
 	};
-
-
 	struct complex_httpServer
 	{
 		struct httpThread *pSeverThread;

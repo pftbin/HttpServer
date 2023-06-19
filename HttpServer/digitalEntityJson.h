@@ -3,94 +3,6 @@
 #include <vector>
 #include "json.h"
 
-//============object to json============
-//A
-class FileItem
-{
-public:
-	FileItem() {};
-	virtual~FileItem() {};
-
-	virtual std::string writeJson();
-public:
-	std::string fileGUID;
-	std::string filePath;
-	std::string fileState;
-};
-class FileItems
-{
-public:
-	FileItems() {};
-	virtual~FileItems() {};
-
-	virtual std::string writeJson();
-public:
-	std::vector<FileItem> vecFileItems;
-};
-
-//B
-class FileGroup
-{
-public:
-	FileGroup() {};
-	virtual~FileGroup() {};
-
-	virtual std::string writeJson();
-public:
-	FileItems   fileItems;
-	std::string groupName;
-	std::string groupType;
-	std::string status;
-};
-class FileGroups
-{
-public:
-	FileGroups() {};
-	virtual~FileGroups() {};
-
-	virtual std::string writeJson();
-public:
-	std::vector<FileGroup> vecFileGroups;
-};
-
-//C
-class EntityData
-{
-public:
-	EntityData() {};
-	virtual~EntityData() {};
-
-	virtual std::string writeJson();
-public:
-	std::string type;
-	std::string physicalfolder;
-	std::string tree_;
-};
-
-//A+B+C
-class DigitalEntity
-{
-public:
-	DigitalEntity() {};
-	virtual~DigitalEntity() {};
-
-	virtual std::string writeJson();
-public:
-	std::string contentId;
-	std::string createUser;
-	EntityData  entityData;
-	FileGroups  fileGroups;
-	std::string name;
-	std::string privilege;
-	std::string site_;
-	std::string tree;
-	std::string type;
-};
-
-//============json to object============
-
-DigitalEntity json2object(std::string sJson);
-
 //===========================================================================================================================================
 
 //获取数字人列表接口支持
@@ -211,10 +123,10 @@ public:
 
 	std::string Foreground;
 	std::string Background;
-	int			Front_XPos;
-	int			Front_YPos;
-	int			Front_Scale;
-	int			Front_Rotation;
+	double		Front_left;
+	double		Front_right;
+	double		Front_top;
+	double		Front_bottom;
 
 	std::string KeyFrame_Format;
 	int			KeyFrame_Width;

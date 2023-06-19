@@ -31,6 +31,9 @@
     <Filter Include="源文件\OpenCV">
       <UniqueIdentifier>{701beb9a-e2f7-4f43-aa32-7a038da02e5a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\OSS上传">
+      <UniqueIdentifier>{0455b2b6-25a0-40db-a45a-9b6e284b708f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -66,6 +69,9 @@
     <ClCompile Include="videoOperate.cpp">
       <Filter>源文件\OpenCV</Filter>
     </ClCompile>
+    <ClCompile Include="awsUpload.cpp">
+      <Filter>源文件\OSS上传</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="digitalEntityJson.h">
@@ -100,6 +106,12 @@
     </ClInclude>
     <ClInclude Include="videoOperate.h">
       <Filter>源文件\OpenCV</Filter>
+    </ClInclude>
+    <ClInclude Include="awsUpload.h">
+      <Filter>源文件\OSS上传</Filter>
+    </ClInclude>
+    <ClInclude Include="dirent.h">
+      <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

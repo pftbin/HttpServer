@@ -1,6 +1,7 @@
 #include "videoOperate.h"
-#pragma comment(lib, "opencv_world460.lib")
 
+
+#pragma comment(lib, "opencv_world460.lib")
 
 //custom loger
 static FileWriter loger_vdooperate("videoOperate.log");

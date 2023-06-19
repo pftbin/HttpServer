@@ -1,9 +1,6 @@
 #include "httpConcurrencyServer.h"
 #include "public.h"
 
-#define HAVE_STRUCT_TIMESPEC
-#include <pthread.h>
-
 //custom loger
 static FileWriter loger_httpserver("httpserver.log");
 
@@ -29,11 +26,91 @@ static bool globalIsIPStringValid(std::string IPString)
 		return false;
 }
 
+//OPENSSL
+/* 这个是调用openSSL提供的打印log接口 */
+static void die_most_horribly_from_openssl_error(const char* func)
+{
+	_debug_to(loger_httpserver, 1, ("%s failed...\n"), func);
+
+	/* This is the OpenSSL function that prints the contents of the
+	 * error stack to the specified file handle. */
+	ERR_print_errors_fp(stderr);
+
+	exit(EXIT_FAILURE);
+}
+void error_exit(const char* fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+
+	exit(EXIT_FAILURE);
+}
+/* OpenSSL有使用未初始化内存的习惯, 我们安装一个自定义malloc函数，用于实际调用 */
+static void* my_zeroing_malloc(size_t howmuch)
+{
+	return calloc(1, howmuch);
+}
+//这个回调负责创建一个新的SSL连接并将其包装在OpenSSL bufferevent中。就是这样我们实现了一个HTTPS服务器而不是一个普通的旧HTTP服务器。
+static struct bufferevent* bevcb(struct event_base* base, void* arg)
+{
+	struct bufferevent* r;
+	SSL_CTX* ctx = (SSL_CTX*)arg;
+
+	r = bufferevent_openssl_socket_new(base,
+		-1,
+		SSL_new(ctx),
+		BUFFEREVENT_SSL_ACCEPTING,
+		BEV_OPT_CLOSE_ON_FREE);
+	return r;
+}
+static void server_setup_certs(SSL_CTX* ctx, const char* certificate_file, const char* private_key)
+{
+	_debug_to(loger_httpserver, 1, ("Loading certificate chain = '%s', private key = '%s'\n"), certificate_file, private_key);
+	if (1 != SSL_CTX_use_certificate_file(ctx, certificate_file, SSL_FILETYPE_PEM))
+		die_most_horribly_from_openssl_error("SSL_CTX_use_certificate_chain_file");
+
+	if (1 != SSL_CTX_use_PrivateKey_file(ctx, private_key, SSL_FILETYPE_PEM))
+		die_most_horribly_from_openssl_error("SSL_CTX_use_PrivateKey_file");
+
+	if (1 != SSL_CTX_check_private_key(ctx))
+		die_most_horribly_from_openssl_error("SSL_CTX_check_private_key");
+}
+
 #if defined WIN32  //SYS-WIN32
 
 #pragma comment(lib,"pthreadVC2.lib")
 namespace httpServer
 {
+	//
+	bool OpenSSL_Enable;
+	std::string str_certificate_file;
+	std::string str_private_key;
+	void openssl_common_init(std::string certificate_file, std::string private_key)
+	{
+		// 初始化OpenSSL库
+		SSL_library_init();
+		SSL_load_error_strings();
+		OpenSSL_add_all_algorithms();
+
+		str_certificate_file = certificate_file; str_private_key = private_key;
+		_debug_to(loger_httpserver, 1, ("OpenSSL version = %s, libevent version = %s, \ncertificate = %s, private key = %s\n"), SSLeay_version(SSLEAY_VERSION), event_get_version(), str_certificate_file.c_str(), str_private_key.c_str());
+		
+		OpenSSL_Enable = false;
+		if (str_certificate_file.empty() || str_private_key.empty() || get_path_name(str_certificate_file).empty() || get_path_name(str_private_key).empty())
+		{
+			OpenSSL_Enable = false;
+		}
+		else if (is_existfile(str_certificate_file.c_str()) && is_existfile(str_private_key.c_str()))
+		{
+			OpenSSL_Enable = true;
+		}
+		_debug_to(loger_httpserver, 1, ("OpenSSL Enable = %d\n"), OpenSSL_Enable);
+	}
+
+	//
 	int init_win_socket()
 	{
 		WSADATA wsaData;
@@ -43,12 +120,6 @@ namespace httpServer
 		}
 		return 0;
 	}
-	int httpserver_bindsocket(int port, int backlog);
-	int httpserver_start(int port, int nthreads, int backlog);
-	void* httpserver_Dispatch(void *arg);
-	void httpserver_GenericHandler(struct evhttp_request *req, void *arg);
-	void httpserver_ProcessRequest(struct evhttp_request *req);
-
 	int httpserver_bindsocket(int port, int backlog) {
 		int r;
 
@@ -79,48 +150,6 @@ namespace httpServer
 
 		return nsfd;
 	}
-
-	int httpserver_start(int port, int nthreads, int backlog) {
-
-		int r, i;
-		int nfd = httpserver_bindsocket(port, backlog);
-		if (nfd < 0) return -1;
-		pthread_t ths[10];
-		nthreads = 10;
-		for (i = 0; i < nthreads; i++) {
-			struct event_base *base = event_base_new();
-            if (base == nullptr) return -1;
-			struct evhttp *httpd = evhttp_new(base);
-            if (httpd == nullptr) return -1;
-			r = evhttp_accept_socket(httpd, nfd);
-			if (r != 0) return -1;
-            evhttp_set_gencb(httpd, httpserver_GenericHandler, nullptr);
-            r = pthread_create(&ths[i], nullptr, httpserver_Dispatch, base);
-			if (r != 0) return -1;
-		}
-		for (i = 0; i < nthreads; i++) {
-            pthread_join(ths[i], nullptr);
-		}
-		return 0;
-	}
-
-	void* httpserver_Dispatch(void *arg) {
-		event_base_dispatch((struct event_base*)arg);
-        return nullptr;
-	}
-
-	void httpserver_GenericHandler(struct evhttp_request *req, void *arg) {
-        //Q_UNUSED(arg);
-		httpserver_ProcessRequest(req);
-	}
-
-	void httpserver_ProcessRequest(struct evhttp_request *req) {
-        //Q_UNUSED(req);
-		//struct evbuffer *buf = evbuffer_new();
-		//if (buf == NULL) return;
-
-		//here comes the magic
-	}
 	DWORD WINAPI GlobalHttpBaseFunc(LPVOID lpParam)
 	{
         try {
@@ -134,6 +163,7 @@ namespace httpServer
 		}
 	}
 
+	//httpServer命名空间内
 	int complex_httpServer::start_http_server()
 	{
 		stop_http_server();
@@ -149,19 +179,19 @@ namespace httpServer
 			try
 			{
 				pSeverThread = new struct httpThread[nthreads];//创建100个httpTreads结构体
-                if (pSeverThread == nullptr)
+				if (pSeverThread == nullptr)
 				{
-                    _debug_to(loger_httpserver, 1, ("start http server failed,error:new http thread failed\n"));
+					_debug_to(loger_httpserver, 1, ("start http server failed,error:new http thread failed\n"));
 					return -1;
 				}
 			}
 			catch (...)
 			{
-                _debug_to(loger_httpserver, 1, ("start http server failed, error:new http thread catch exception\n"));
+				_debug_to(loger_httpserver, 1, ("start http server failed, error:new http thread catch exception\n"));
 				return -1;
 			}
 		}
-        _debug_to(loger_httpserver, 1, ("start http server begin, port is %d, ipaddr is %s\n"), port, ipaddr.c_str());
+		_debug_to(loger_httpserver, 1, ("start http server begin, port is %d, ipaddr is %s\n"), port, ipaddr.c_str());
 		try
 		{
 			int r, i;
@@ -169,54 +199,84 @@ namespace httpServer
 			//evthread_set_condition_callbacks();
 
 			//evthread_set_id_callback();
-			
+
 			nfd = httpserver_bindsocket(port, backlog);//返回一个初始化的监听ANY_IPADDR的套接字
 			if (nfd < 0) return -1;
 			for (i = 0; i < nthreads; i++)
 			{
 				pSeverThread[i].get_CriticalSection = get_CriticalSection;//get_CriticalSection已经初始化的临界区资源
 				pSeverThread[i].mainWindow = mainWindow;//NULL
-				struct event_base *base = event_base_new();//event_base是libevent的事务处理框架，负责事件注册、删除等 
+				struct event_base* base = event_base_new();//event_base是libevent的事务处理框架，负责事件注册、删除等 
 				//event_base_new 创建event_base对象
-                if (base == nullptr)
+				if (base == nullptr)
 				{
-                    _debug_to(loger_httpserver, 1, ("start http server failed,error:new http base failed\n"));
+					_debug_to(loger_httpserver, 1, ("start http server failed,error:new http base failed\n"));
 					stop_failed_server(i);
 					return -1;
 				}
 				pSeverThread[i].event_base = base;
-				struct evhttp *httpd = evhttp_new(base);//创建http服务器 base是用于接收HTTP事件的事件库
-                if (httpd == nullptr)
+				struct evhttp* httpd = evhttp_new(base);//创建http服务器 base是用于接收HTTP事件的事件库
+				if (httpd == nullptr)
 				{
-                    _debug_to(loger_httpserver, 1, ("start http server failed,error:new evhttp_new failed\n"));
+					_debug_to(loger_httpserver, 1, ("start http server failed,error:new evhttp_new failed\n"));
 					stop_failed_server(i);
 					event_base_free(base);
 					return -1;
 				}
 				pSeverThread[i].http_server = httpd;
+
+				if (OpenSSL_Enable)
+				{
+					//------OPENSSL------
+					/* 创建SSL上下文环境 ，可以理解为 SSL句柄 */
+					SSL_CTX* ctx = SSL_CTX_new(SSLv23_server_method());
+					SSL_CTX_set_options(ctx, SSL_OP_SINGLE_DH_USE | SSL_OP_SINGLE_ECDH_USE | SSL_OP_NO_SSLv2);
+					SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+
+					/*选择椭圆曲线与椭圆曲线密码套件一起使用*/
+					EC_KEY* ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+					if (!ecdh)
+						die_most_horribly_from_openssl_error("EC_KEY_new_by_curve_name");
+					if (1 != SSL_CTX_set_tmp_ecdh(ctx, ecdh))
+						die_most_horribly_from_openssl_error("SSL_CTX_set_tmp_ecdh");
+
+					/* 选择服务器证书 和 服务器私钥. */
+					if (str_certificate_file.empty() || str_private_key.empty())
+						die_most_horribly_from_openssl_error("SSL_CTX_set_certificate_key");
+					const char* certificate_file = str_certificate_file.c_str();	//"server-certificate-chain.pem";
+					const char* private_key = str_private_key.c_str();				//"server-private-key.pem";
+
+					/* 设置服务器证书 和 服务器私钥 到 OPENSSL ctx上下文句柄中 */
+					server_setup_certs(ctx, certificate_file, private_key);
+
+					/* 使我们创建好的evhttp句柄 支持SSL加密。实际上，加密的动作和解密的动作都已经帮我们自动完成，我们拿到的数据就已经解密之后的 */
+					evhttp_set_bevcb(httpd, bevcb, ctx);
+					//------OPENSSL------
+				}
+
 				r = evhttp_accept_socket(httpd, nfd);//使http server可以接受来自指定的socket的连接，可重复调用来绑定到不同的socket
 				if (r != 0)
 				{
-                    _debug_to(loger_httpserver, 1, ("start http server failed,error:accept socket failed\n"));
+					_debug_to(loger_httpserver, 1, ("start http server failed,error:accept socket failed\n"));
 					stop_failed_server(i);
 					evhttp_free(httpd);
 					event_base_free(base);
 					return -1;
 				}
-                evhttp_set_timeout(httpd, 60);//为一个http请求设置超时时间 以秒为单位，最大60秒
+				evhttp_set_timeout(httpd, 60);//为一个http请求设置超时时间 以秒为单位，最大60秒
 				//evhttp_set_gencb(httpd, pFunc, this);
 				evhttp_set_gencb(httpd, pFunc, &pSeverThread[i]);//设置请求处理回调方法
 
-                //evhttp_set_max_body_size(httpd, 65536);
-				
+				//evhttp_set_max_body_size(httpd, 65536);
+
 				//DWORD dwThread;
-                pSeverThread[i].threadhandle = ::CreateThread(nullptr, 1024, GlobalHttpBaseFunc, &pSeverThread[i], 0, &pSeverThread[i].threadid);
-	
-                //CreateThread 第一个参数 安全属性，第二个参数 栈空间大小 ，第三个参数 线程函数 ，传入的参数，是否创建完毕即可调度，保存线程ID
+				pSeverThread[i].threadhandle = ::CreateThread(nullptr, 1024, GlobalHttpBaseFunc, &pSeverThread[i], 0, &pSeverThread[i].threadid);
+
+				//CreateThread 第一个参数 安全属性，第二个参数 栈空间大小 ，第三个参数 线程函数 ，传入的参数，是否创建完毕即可调度，保存线程ID
 				//返回新线程的句柄
-                if (pSeverThread[i].threadhandle == nullptr)
+				if (pSeverThread[i].threadhandle == nullptr)
 				{
-                    _debug_to(loger_httpserver, 1, ("start http server failed,error:create thread failed\n"));
+					_debug_to(loger_httpserver, 1, ("start http server failed,error:create thread failed\n"));
 					stop_failed_server(i);
 					evhttp_free(httpd);
 					event_base_free(base);
@@ -227,13 +287,12 @@ namespace httpServer
 		}
 		catch (...)
 		{
-            _debug_to(loger_httpserver, 1, ("start http server failed,error:exception\n"));
+			_debug_to(loger_httpserver, 1, ("start http server failed,error:exception\n"));
 			return -1;
 		}
 		return 0;
 	}
 
-	//httpServer命名空间内
 	int complex_httpServer::start_http_server(http_cb_Func _pFunc, HWND _mainWindow, int _port, int httpthreads, int nbacklog, std::string _ipaddr)
 	{
 		port = _port;

@@ -4,22 +4,27 @@
 #include <iostream>
 #include <clocale>
 #include <chrono>
-#include <cwchar>
 #include <codecvt>
+#include <cstdlib>
 #include <vector>
 #include <list>
 
 #if defined WIN32
 #include <io.h>
 #include <windows.h>
-#include <wchar.h>
 #include <tchar.h>
 #else
 #include <unistd.h>
 #endif
 
 #include "loghelp.h"
-#define _debug_to printf_tofile
+#define _debug_to printf_tofile  
+#define CHECK_CONFIG(name,value,error) {if(value.empty()){error=std::string(name)+" is empty,please check config... ";return false;}}
+
+#define maxvalue(x, y)  ((x) > (y) ? (x) : (y))
+#define minvalue(x, y)  ((x) < (y) ? (x) : (y))
+
+#define LIBEVENT_USE_OPENSSL    1       
 
 inline std::string& trim(std::string& s)
 {
@@ -28,6 +33,10 @@ inline std::string& trim(std::string& s)
     s.erase(s.find_last_not_of(" ") + 1);
     return s;
 }
+
+//
+bool create_directories(const char* path);
+
 
 //
 void unicode_to_utf8(const wchar_t* in, size_t len, std::string& out);
@@ -56,7 +65,10 @@ unsigned short Checksum(const unsigned short* buf, int size);
 
 bool str_existsubstr(std::string str, std::string substr);
 
+bool str_prefixsame(const std::string str, const std::string prefix);
+
 std::string str_replace(std::string str, std::string old, std::string now);
+
 
 std::string getnodevalue(std::string info, std::string nodename);
 
@@ -68,6 +80,8 @@ long long   gettimecount();
 
 std::string getmessageid();
 
+
+//
 bool is_existfile(const char* filename);
 
 bool is_imagefile(const char* filename);
@@ -77,7 +91,13 @@ bool is_videofile(const char* filename);
 bool is_audiofile(const char* filename);
 
 
-std::string get_file_extension(char* filename);
+std::string get_path_folder(std::string filepath);
+
+std::string get_path_name(std::string filepath);
+
+std::string get_path_extension(std::string filepath);
+
+
 
 bool read_file(const char* filename, char*& file_buff, long& file_size);
 
@@ -705,5 +725,132 @@ namespace base64
 }
 #endif
 
+//jwt
+#if 1
+
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cstring>
+#include <sstream>
+#include <iomanip>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/bio.h>
+#include <openssl/buffer.h>
+
+    static void remove_n(std::string& input)
+    {
+        //去掉加密字串中的 \n
+        input.erase(std::remove(input.begin(), input.end(), '\n'), input.end());
+    }
+    static std::vector<std::string> split(const std::string& s, char delimiter)
+    {
+        std::vector<std::string> tokens;
+        std::string token;
+        std::istringstream tokenStream(s);
+        while (std::getline(tokenStream, token, delimiter)) {
+            tokens.push_back(token);
+        }
+        return tokens;
+    }
+    static std::string hmac_sha256(const std::string& key, const std::string& msg)
+    {
+        unsigned char hmac[EVP_MAX_MD_SIZE];
+        unsigned int hmac_len = 0;
+        HMAC(EVP_sha256(), key.c_str(), key.length(), reinterpret_cast<const unsigned char*>(msg.c_str()), msg.length(), hmac, &hmac_len);
+        std::stringstream ss;
+        for (unsigned int i = 0; i < hmac_len; i++) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hmac[i]);
+        }
+
+        return ss.str();
+    }
+
+    static std::string jwt_base64_encode(const std::string& input) 
+    {
+        BIO* bio, * b64;
+        BUF_MEM* bufferPtr;
+
+        b64 = BIO_new(BIO_f_base64());
+        bio = BIO_new(BIO_s_mem());
+        bio = BIO_push(b64, bio);
+
+        BIO_write(bio, input.c_str(), input.length());
+        BIO_flush(bio);
+
+        BIO_get_mem_ptr(bio, &bufferPtr);
+        std::string output(bufferPtr->data, bufferPtr->length);
+
+        BIO_free_all(bio);
+
+        return output;
+    }
+    static std::string jwt_base64_decode(const std::string& input)
+    {
+        BIO* bio, * b64;
+        char* buffer = new char[input.size()+1];
+        memset(buffer, 0, input.size());
+
+        bio = BIO_new_mem_buf(input.c_str(), -1);
+        b64 = BIO_new(BIO_f_base64());
+        bio = BIO_push(b64, bio);
+        BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+        int len = BIO_read(bio, buffer, input.size());
+        BIO_free_all(bio);
+
+        std::string str_ret; str_ret = buffer;
+        return str_ret;
+    }
+
+    static std::string jwt_encode(const std::string& header, const std::string& payload, const std::string& key)
+    {
+        std::string header_b64 = jwt_base64_encode(header);     
+        remove_n(header_b64);
+
+        std::string payload_b64 = jwt_base64_encode(payload);   
+        remove_n(payload_b64);
+
+        std::string signature_hac_before = header_b64 + "." + payload_b64;
+        std::string signature_hac_after = hmac_sha256(key, signature_hac_before);
+        std::string signature_b64 = jwt_base64_encode(signature_hac_after);  
+        remove_n(signature_b64);
+
+        return header_b64 + "." + payload_b64 + "." + signature_b64;
+    }
+    static bool jwt_decode(const std::string& token, const std::string& key, std::string& header, std::string& payload)
+    {
+        std::vector<std::string> parts = split(token, '.');
+        if (parts.size() != 3)
+            return false;
+
+        header = jwt_base64_decode(parts[0]);
+
+        payload = jwt_base64_decode(parts[1]);
+
+        std::string signature_hac_before = parts[0] + "." + parts[1];
+        std::string signature_hac_after = hmac_sha256(key, signature_hac_before);
+        std::string signature = jwt_base64_decode(parts[2]);
+        if (signature != signature_hac_after) 
+            return false;
+        
+        return true;
+    }
+
+    static bool string_to_token(const std::string header, const std::string payload, const std::string key, std::string& token)
+    {
+        bool result = true;
+        token = jwt_encode(header, payload, key);
+        if (token.empty())
+            result = false;
+
+        return result;
+    }
+    static bool token_to_string(const std::string token, const std::string key, std::string& header, std::string& payload)
+    {
+        return jwt_decode(token, key, header, payload);
+    }
+#endif
 
 

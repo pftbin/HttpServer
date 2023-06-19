@@ -38,7 +38,7 @@
     <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
-    <SpectreMitigation>Spectre</SpectreMitigation>
+    <SpectreMitigation>false</SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -107,20 +107,21 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>./inc;./inc/pthread;./inc/libevent/windows;./inc/mysql;./inc/librabbitmq;./inc/boost;./inc/opencv;</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;USE_IMPORT_EXPORT;USE_WINDOWS_DLL_SEMANTICS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>false</ConformanceMode>
+      <AdditionalIncludeDirectories>./inc;./inc/pthread;./inc/libevent/windows;./inc/mysql;./inc/librabbitmq;./inc/boost;./inc/opencv;./inc/aws</AdditionalIncludeDirectories>
       <LanguageStandard_C>Default</LanguageStandard_C>
       <Optimization>Disabled</Optimization>
       <TreatSpecificWarningsAsErrors>
       </TreatSpecificWarningsAsErrors>
+      <TreatWChar_tAsBuiltInType>false</TreatWChar_tAsBuiltInType>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>false</EnableCOMDATFolding>
       <OptimizeReferences>false</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>./lib/curl/windows/Release;./lib/libevent/windows/Release;./lib/mysql/windows/Release;./lib/librabbitmq/windows/Release;./lib/boost/windows/Release;./lib/opencv/windows/Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>./lib/curl/windows/Release;./lib/openssl/windows/Release;./lib/libevent/windows/Release;./lib/mysql/windows/Release;./lib/librabbitmq/windows/Release;./lib/boost/windows/Release;./lib/opencv/windows/Release;./lib/aws/windows/Release</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
@@ -163,6 +164,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="awsUpload.cpp" />
     <ClCompile Include="digitalEntityJson.cpp" />
     <ClCompile Include="httpConcurrencyServer.cpp" />
     <ClCompile Include="httpkit.cpp" />
@@ -176,7 +178,9 @@
     <ClCompile Include="videoOperate.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="awsUpload.h" />
     <ClInclude Include="digitalEntityJson.h" />
+    <ClInclude Include="dirent.h" />
     <ClInclude Include="httpConcurrencyServer.h" />
     <ClInclude Include="httpkit.h" />
     <ClInclude Include="json.h" />

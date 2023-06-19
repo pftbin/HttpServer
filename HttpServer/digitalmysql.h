@@ -6,12 +6,15 @@
 
 namespace digitalmysql
 {
-	bool getmysqlconfig(std::string configfilepath);
+	bool getconfig_mysql(std::string configfilepath, std::string& error);
 
 	//
 	typedef struct _humaninfo
 	{
 		int id;
+		int belongid;		//所属用户
+		int privilege;		//权限,0=公有,1=私有
+
 		std::string humanid;
 		std::string humanname;
 		std::string contentid;
@@ -32,6 +35,9 @@ namespace digitalmysql
 		_humaninfo()
 		{
 			id = -1;
+			belongid = 0;
+			privilege = 0;
+
 			humanid = "";
 			humanname = "";
 			contentid = "";
@@ -49,23 +55,27 @@ namespace digitalmysql
 			facemodelfile = "";
 		}
 	}humaninfo,*phumaninfo;
-	bool addhumaninfo(humaninfo humanitem, bool update);
+	bool addhumaninfo(humaninfo humanitem, bool update = false);
+	bool gethumaninfo(std::string humanid, humaninfo& humanitem);
 	bool isexisthuman_humanid(std::string humanid);
 	bool isavailable_humanid(std::string humanid);
 	bool deletehuman_humanid(std::string humanid, bool deletefile, std::string& errmsg);
 
 	typedef std::vector<humaninfo> VEC_HUMANINFO;
-	bool gethumanlistinfo(std::string humanid, VEC_HUMANINFO& vechumaninfo);
+	bool gethumanlistinfo(std::string humanid, VEC_HUMANINFO& vechumaninfo, int belongid = -1);
 
 	//
 	typedef struct _taskinfo
 	{
 		int			taskid;
-		int			tasktype;//0-onlyaudio,1-audio+video
-		int			moodtype;//0-nomal,1-sad
+		int			belongid;		//所属用户
+		int			privilege;		//权限,0=公有,1=私有
+
+		int			tasktype;		//0-onlyaudio,1-audio+video
+		int			moodtype;		//0-nomal,1-sad
 		double		speakspeed;
 		std::string taskname;
-		int			taskstate;//0-merging 1-success 2-failed
+		int			taskstate;		//0-merging 1-success 2-failed
 		int			taskprogress;
 		std::string createtime;
 		std::string humanid;
@@ -76,7 +86,7 @@ namespace digitalmysql
 		std::string audio_format;
 		int			audio_length;
 		std::string video_path;
-		std::string video_finalpath;
+		std::string video_keyframe;
 		std::string video_format;
 		int			video_length;
 		int			video_width;
@@ -85,14 +95,17 @@ namespace digitalmysql
 
 		std::string foreground;
 		std::string background;
-		int			front_XPos;
-		int			front_YPos;
-		int			front_Scale;
-		int			front_Rotation;
+		double		front_left;
+		double		front_right;
+		double		front_top;
+		double		front_bottom;
 
 		_taskinfo()
 		{
 			taskid = -1;
+			belongid = 0;
+			privilege = 0;
+
 			tasktype = -1;
 			moodtype = 0;
 			speakspeed = 1.0;
@@ -108,7 +121,7 @@ namespace digitalmysql
 			audio_format = "";
 			audio_length = 0;
 			video_path = "";
-			video_finalpath;
+			video_keyframe = "";
 			video_format = "";
 			video_length = 0;
 			video_width = 0;
@@ -117,16 +130,18 @@ namespace digitalmysql
 
 			foreground = "";
 			background = "";
-			front_XPos = 0;
-			front_YPos = 0;
-			front_Scale = 100;
-			front_Rotation = 0;
+			front_left = 0;
+			front_right = 0;
+			front_top = 100;
+			front_bottom = 0;
 		}
 	}taskinfo, * ptaskinfo;
 	typedef std::vector<taskinfo> VEC_TASKINFO;
-	bool addtaskinfo(int& taskid, taskinfo taskitem, bool update=false);
+	bool addtaskinfo(int& taskid, taskinfo taskitem, bool update = false);
 	bool gettaskinfo(int taskid, taskinfo& taskitem);
-	bool setfinalvideopath(int taskid, std::string vdofinalpath);
+	bool setaudiopath(int taskid, std::string audiopath);
+	bool setvideopath(int taskid, std::string videopath);
+	bool setkeyframepath(int taskid, std::string keyframepath);
 	bool deletetask_taskid(int taskid, bool deletefile, std::string& errmsg);
 
 	typedef struct _filterinfo
@@ -141,7 +156,7 @@ namespace digitalmysql
 		}
 	}filterinfo, * pfilterinfo;
 	typedef std::vector<filterinfo> VEC_FILTERINFO;
-	bool gettaskhistoryinfo(VEC_FILTERINFO& vecfilterinfo, std::string order_key, int order_way, int pagesize, int pagenum, int& tasktotal, VEC_TASKINFO& vectaskhistory);
+	bool gettaskhistoryinfo(VEC_FILTERINFO& vecfilterinfo, std::string order_key, int order_way, int pagesize, int pagenum, int& tasktotal, VEC_TASKINFO& vectaskhistory, int belongid = -1);
 
 	bool isexisttask_taskid(int taskid);
 	bool isexisttask_textguid(int& taskid, std::string taskname, std::string textguid);
@@ -156,21 +171,36 @@ namespace digitalmysql
 	typedef struct _tasksourceinfo 
 	{
 		int			id;
-		int			sourcetype;//0-image,1-video,2-audio
+		int			belongid;		//所属用户
+		int			privilege;		//权限,0=公有,1=私有
+
+		int			sourcetype;		//0-image,1-video,2-audio
 		std::string sourcepath;
 		std::string sourcekeyframe;
 		std::string createtime;
+
+		_tasksourceinfo()
+		{
+			id = 0;
+			belongid = 0;
+			privilege = 0;
+
+			sourcetype = -1;
+			sourcepath = "";
+			sourcekeyframe = "";
+			createtime = "";
+		}
+
 	}tasksourceinfo,*ptasksourceinfo;
 	typedef std::vector<tasksourceinfo> VEC_TASKSOURCEINFO;
 	bool addtasksource(tasksourceinfo tasksourceitem, bool update = false);
-	bool gettasksourcelist(VEC_TASKSOURCEINFO& vectasksource);
+	bool gettasksourcelist(VEC_TASKSOURCEINFO& vectasksource, int belongid = -1);
 
 	bool isexisttasksource_path(std::string sourcepath);
 
 	//
 	int  getmergeprogress(int taskid);
 	bool setmergeprogress(int taskid, int nprogress);
-
 	//
 	int  getmergestate(int taskid);
 	bool setmergestate(int taskid, int nstate);
