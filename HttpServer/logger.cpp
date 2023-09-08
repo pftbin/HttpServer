@@ -1,32 +1,8 @@
 #include "logger.h"
+#include "public.h"
 
 #define HAVE_STRUCT_TIMESPEC
 #include <pthread.h>
-
-//
-#include <direct.h>
-#include <sys/stat.h>
-#include <ctime>
-static bool _createdirectory(const char* path)
-{
-    struct stat st = { 0 };
-    if (stat(path, &st) == -1)
-    {
-#if defined WIN32
-        if (mkdir(path) != 0)
-        {
-            return false;
-        }
-#else
-        if (mkdir(path, 0700) != 0)
-        {
-            return false;
-        }
-#endif
-    }
-
-    return true;
-}
 
 static std::string localtime()
 {
@@ -38,13 +14,20 @@ static std::string localtime()
     return buf;
 }
 
-static std::string timefolder()
+static std::string logfilefolder()
 {
     std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
+    std::string daytime = "";
     char buf[100] = { 0 };
     std::strftime(buf, sizeof(buf), "%Y%m%d", std::localtime(&now));//24
-    return buf;
+    daytime = buf;
+    
+    std::string apppath = getexepath(); apppath = str_replace(apppath, std::string("\\"), std::string("/"));
+    std::string logfolder = apppath + std::string("/logfile/");
+    logfolder += daytime;
+
+    return logfolder;
 }
 
 static std::string timeprefix()
@@ -86,10 +69,10 @@ FileWriter::FileWriter(const std::string& filename, int level, bool async)
     : log_level_(level)
     , log_async_(async)
     , filename_(filename)
-    , folder_(timefolder())
+    , folder_(logfilefolder())
 {
     std::string logfilepath = filename_;
-    if (_createdirectory(folder_.c_str()))
+    if (create_directories(folder_.c_str()))
         logfilepath = folder_ + "/" + timeprefix() + filename_;
     file_.open(logfilepath, std::ios::out | std::ios::app);
 
@@ -106,7 +89,7 @@ FileWriter::~FileWriter()
 
 void FileWriter::resetlogfile()
 {
-    std::string newfolder_ = timefolder();
+    std::string newfolder_ = logfilefolder();
     if (newfolder_ != folder_)
     {
         std::lock_guard<std::mutex> lock(mutex_);//局部变量，退出函数自动释放
@@ -116,7 +99,7 @@ void FileWriter::resetlogfile()
 
         //open newfile
         std::string logfilepath = filename_;
-        if (_createdirectory(folder_.c_str()))
+        if (create_directories(folder_.c_str()))
             logfilepath = folder_ + "/" + timeprefix() + filename_;
         file_.open(logfilepath, std::ios::out | std::ios::app);
     }
@@ -140,9 +123,14 @@ void FileWriter::writelog_async(const std::string& log_str)
 
 void writeToFile(FileWriter& writer, int level, const std::string& str) 
 {
-    std::string format_str;
+    std::string format_str = "", level_type = "";
+    if (level == 0) level_type = "INFO";
+    if (level == 1) level_type = "MAIN";
+
     format_str += localtime();
-    format_str += "\t";
+    format_str += "  ";
+    format_str += level_type;
+    format_str += "  ";
     format_str += str;
     
     char backchar = str[strlen(str.c_str()) - 1];

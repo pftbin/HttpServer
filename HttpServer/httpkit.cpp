@@ -196,9 +196,12 @@ namespace httpkit
 		curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &bodyData);
 		try
 		{
+			// 不验证证书
+			curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, false);
+			curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
 
 			/* get it! */
-			curl_easy_perform(curl_handle);
+			CURLcode res = curl_easy_perform(curl_handle);
 
 			curl_slist_free_all(plist);
 
@@ -227,10 +230,13 @@ namespace httpkit
 
 		curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT,10);   
 		curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, "POST");
-		curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, lpData);
 
-		long len = (long)strlen(lpData);
-		curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, len);
+		if (lpData)
+		{
+			long len = (long)strlen(lpData);
+			curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, lpData);
+			curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, len);
+		}
 
 		/* set URL to get */
 		curl_easy_setopt(curl_handle, CURLOPT_URL, lpRequestUTF8Encoded);
@@ -257,6 +263,10 @@ namespace httpkit
 		curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &bodyData);
 
 		bool bRet = false;
+		// 不验证证书
+		curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, false);
+		curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
+
 		/* get it! */
 		CURLcode res = curl_easy_perform(curl_handle);
 
@@ -287,10 +297,13 @@ namespace httpkit
 
 		curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, 10);
 		curl_easy_setopt(curl_handle, CURLOPT_CUSTOMREQUEST, "PATCH");
-		curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, lpData);
 
-		long len = (long)strlen(lpData);
-		curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, len);
+		if (lpData)
+		{
+			long len = (long)strlen(lpData);
+			curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, lpData);
+			curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, len);
+		}
 
 		/* set URL to get */
 		curl_easy_setopt(curl_handle, CURLOPT_URL, lpRequestUTF8Encoded);
@@ -317,6 +330,10 @@ namespace httpkit
 		curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &bodyData);
 
 		bool bRet = false;
+		// 不验证证书
+		curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, false);
+		curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
+
 		/* get it! */
 		CURLcode res = curl_easy_perform(curl_handle);
 
@@ -336,7 +353,6 @@ namespace httpkit
 
 		return bRet;
 	}
-
 
 	//3 Other
 	bool httprequest_download(char* lpRequestUTF8Encoded, char* lpfilefullpath)
@@ -366,8 +382,12 @@ namespace httpkit
 			/* write the page body to this file handle */
 			curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, pfile);
 
+			// 不验证证书
+			curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, false);
+			curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
+
 			/* get it! */
-			curl_easy_perform(curl_handle);
+			CURLcode res = curl_easy_perform(curl_handle);
 
 			/* close the header file */
 			fclose(pfile);

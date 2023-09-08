@@ -107,7 +107,6 @@ namespace httpServer
 		{
 			OpenSSL_Enable = true;
 		}
-		_debug_to(loger_httpserver, 1, ("OpenSSL Enable = %d\n"), OpenSSL_Enable);
 	}
 
 	//

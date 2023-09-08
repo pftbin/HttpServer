@@ -8,4 +8,4 @@
 using namespace cv;
 using namespace std;
 
-bool getimage_fromvideo(std::string videofilepath, std::string& imagefilepath);
+bool getimage_fromvideo(std::string videofilepath, std::string& imagefilepath, unsigned int& videowidth, unsigned int& videoheight);

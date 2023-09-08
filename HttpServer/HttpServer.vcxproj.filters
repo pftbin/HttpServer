@@ -13,9 +13,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="源文件\入库Json构造类">
-      <UniqueIdentifier>{b96f60c1-7e24-4602-b62d-f6a55140c3ab}</UniqueIdentifier>
-    </Filter>
     <Filter Include="源文件\Http服务类">
       <UniqueIdentifier>{86c088e5-8265-4705-92e8-24067775a74f}</UniqueIdentifier>
     </Filter>
@@ -34,13 +31,16 @@
     <Filter Include="源文件\OSS上传">
       <UniqueIdentifier>{0455b2b6-25a0-40db-a45a-9b6e284b708f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\Json数据构造">
+      <UniqueIdentifier>{b96f60c1-7e24-4602-b62d-f6a55140c3ab}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="digitalEntityJson.cpp">
-      <Filter>源文件\入库Json构造类</Filter>
+      <Filter>源文件\Json数据构造</Filter>
     </ClCompile>
     <ClCompile Include="httpkit.cpp">
       <Filter>源文件\Http请求类</Filter>
@@ -72,10 +72,13 @@
     <ClCompile Include="awsUpload.cpp">
       <Filter>源文件\OSS上传</Filter>
     </ClCompile>
+    <ClCompile Include="ssoDataFrom.cpp">
+      <Filter>源文件\Http请求类</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="digitalEntityJson.h">
-      <Filter>源文件\入库Json构造类</Filter>
+      <Filter>源文件\Json数据构造</Filter>
     </ClInclude>
     <ClInclude Include="httpkit.h">
       <Filter>源文件\Http请求类</Filter>
@@ -112,6 +115,9 @@
     </ClInclude>
     <ClInclude Include="dirent.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ssoDataFrom.h">
+      <Filter>源文件\Http请求类</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -6,8 +6,13 @@
 #include <chrono>
 #include <codecvt>
 #include <cstdlib>
+#include <random>
+#include <sstream>
+#include <iomanip>
 #include <vector>
 #include <list>
+#include <random>
+#include <algorithm>
 
 #if defined WIN32
 #include <io.h>
@@ -26,6 +31,20 @@
 
 #define LIBEVENT_USE_OPENSSL    1       
 
+inline std::string getfolder_appdata() 
+{
+    const char* appDataPath = std::getenv("APPDATA");
+    if (appDataPath != nullptr) 
+    {
+        std::string folderPath = appDataPath;
+        return folderPath;
+    }
+    else 
+    {
+        return ""; // 如果无法获取到APPDATA环境变量，则返回空字符串
+    }
+}
+
 inline std::string& trim(std::string& s)
 {
     if (s.empty()) { return s; }
@@ -34,9 +53,90 @@ inline std::string& trim(std::string& s)
     return s;
 }
 
-//
-bool create_directories(const char* path);
+inline std::string getguidtext()
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 15);
 
+    std::stringstream ss;
+    for (int i = 0; i < 32; ++i) 
+    {
+        int randNum = dis(gen);
+        ss << std::hex << randNum;
+    }
+
+    std::string guid = ss.str();
+//  guid.insert(8, "-");
+//  guid.insert(13, "-");
+//  guid.insert(18, "-");
+//  guid.insert(23, "-");
+
+    return guid;
+}
+
+inline unsigned int getrandomnum(int min = 10000, int max = 100000000)
+{
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_int_distribution<unsigned int> dis(min, max);
+    return dis(gen);
+}
+
+inline std::string url_encode(const std::string& input) 
+{
+    std::ostringstream escaped;
+    escaped.fill('0');
+    escaped << std::hex;
+
+    for (char c : input) 
+    {
+        // 保留字符：字母、数字、连字符、点、下划线和波浪线、英文冒号、左斜杠
+        if (isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~' || c == ':' || c == '/')
+        {
+            escaped << c;
+        }
+        else 
+        {
+            // 转义其他字符为%xx的形式
+            escaped << '%' << std::setw(2) << int((unsigned char)c);
+        }
+    }
+
+    return escaped.str();
+}
+
+inline std::string url_decode(const std::string& encodedUrl)
+{
+    std::ostringstream decodedUrl;
+
+    for (std::size_t i = 0; i < encodedUrl.length(); ++i) 
+    {
+        if (encodedUrl[i] == '%') 
+        {
+            std::string hexCode = encodedUrl.substr(i + 1, 2);
+            int charCode;
+            std::istringstream(hexCode) >> std::hex >> charCode;
+            decodedUrl << static_cast<char>(charCode);
+            i += 2;
+        }
+        else if (encodedUrl[i] == '+') 
+        {
+            decodedUrl << ' ';
+        }
+        else 
+        {
+            decodedUrl << encodedUrl[i];
+        }
+    }
+
+    return decodedUrl.str();
+}
+
+//
+std::string getexepath();
+bool create_directories(const char* path);
+bool delete_directories(const char* path);
 
 //
 void unicode_to_utf8(const wchar_t* in, size_t len, std::string& out);
@@ -74,12 +174,17 @@ std::string getnodevalue(std::string info, std::string nodename);
 
 std::string getDispositionValue(const std::string source, int pos, const std::string name);
 
-std::string gettimecode();
+std::string gettimetext_now();
+long long   gettimecount_now();
+bool        gettimecount_interval(std::string timetext_start, std::string timetext_end, long long& interval);
 
-long long   gettimecount();
+std::string gettime_custom();
 
-std::string getmessageid();
+std::string gettimetext_millisecond(int millisecond);
+std::string gettimetext_framecount(int framecount, int fps);
 
+std::string gettimeshow_second(long long second);
+std::string gettimeshow_day(long long second);
 
 //
 bool is_existfile(const char* filename);
@@ -156,7 +261,8 @@ namespace picture
     static int GetPNGWidthHeight(const char* path, unsigned int* punWidth, unsigned int* punHeight)
     {
         int Finished = 0;
-        unsigned char uc[4];
+        unsigned char format[8];
+        unsigned char width_height[4];
         FILE* pfRead;
 
         *punWidth = 0;
@@ -168,28 +274,24 @@ namespace picture
             return -1;
         }
 
-        for (int i = 0; i < 4; i++)
-            fread(&uc[i], sizeof(unsigned char), 1, pfRead);
-        if (MAKEUI(uc[0], uc[1], uc[2], uc[3]) != 0x89504e47)
-            _debug_to(1, ("[GetPNGWidthHeight]:png format error, %s\n"), path);
-        for (int i = 0; i < 4; i++)
-            fread(&uc[i], sizeof(unsigned char), 1, pfRead);
-        if (MAKEUI(uc[0], uc[1], uc[2], uc[3]) != 0x0d0a1a0a)
-            _debug_to(1, ("[GetPNGWidthHeight]:png format error, %s\n"), path);
-
-        fseek(pfRead, 16, SEEK_SET);
-        for (int i = 0; i < 4; i++)
-            fread(&uc[i], sizeof(unsigned char), 1, pfRead);
-        *punWidth = MAKEUI(uc[0], uc[1], uc[2], uc[3]);
-        for (int i = 0; i < 4; i++)
-            fread(&uc[i], sizeof(unsigned char), 1, pfRead);
-        *punHeight = MAKEUI(uc[0], uc[1], uc[2], uc[3]);
+        for (int i = 0; i < 8; i++)
+            fread(&format[i], sizeof(unsigned char), 1, pfRead);
+        if ((MAKEUI(format[0], format[1], format[2], format[3]) == 0x89504e47) && (MAKEUI(format[4], format[5], format[6], format[7]) == 0x0d0a1a0a))
+        {
+            fseek(pfRead, 16, SEEK_SET);
+            for (int i = 0; i < 4; i++)
+                fread(&width_height[i], sizeof(unsigned char), 1, pfRead);
+            *punWidth = MAKEUI(width_height[0], width_height[1], width_height[2], width_height[3]);
+            for (int i = 0; i < 4; i++)
+                fread(&width_height[i], sizeof(unsigned char), 1, pfRead);
+            *punHeight = MAKEUI(width_height[0], width_height[1], width_height[2], width_height[3]);
+        }
 
         fclose(pfRead);
         return 0;
     }
 
-    static int GetJPEGWidthHeight(const char* path, unsigned int* punWidth, unsigned int* punHeight)
+    static int GetJPGWidthHeight(const char* path, unsigned int* punWidth, unsigned int* punHeight)
     {
         int Finished = 0;
         unsigned char id, ucHigh, ucLow;
@@ -200,7 +302,7 @@ namespace picture
 
         if (fopen_s(&pfRead, path, "rb") != 0)
         {
-            _debug_to(1, ("[GetJPEGWidthHeight]:can't open file:%s\n"), path);
+            _debug_to(1, ("[GetJPGWidthHeight]:can't open file:%s\n"), path);
             return -1;
         }
 
@@ -254,7 +356,7 @@ namespace picture
             default:
                 fread(&ucHigh, sizeof(char), 1, pfRead);
                 fread(&ucLow, sizeof(char), 1, pfRead);
-                _debug_to(1, ("[GetJPEGWidthHeight]:unknown id: 0x%x ;  length=%hd\n"), id, MAKEUS(ucHigh, ucLow));
+                _debug_to(1, ("[GetJPGWidthHeight]:unknown id: 0x%x ;  length=%hd\n"), id, MAKEUS(ucHigh, ucLow));
                 if (fseek(pfRead, (long)(MAKEUS(ucHigh, ucLow) - 2), SEEK_CUR) != 0)
                     Finished = -2;
                 break;
@@ -262,11 +364,64 @@ namespace picture
         }
 
         if (Finished == -1)
-            _debug_to(1, ("[GetJPEGWidthHeight]:can't find SOF0!\n"));
+            _debug_to(1, ("[GetJPGWidthHeight]:can't find SOF0!\n"));
         else if (Finished == -2)
-            _debug_to(1, ("[GetJPEGWidthHeight]:jpeg format error!\n"));
+            _debug_to(1, ("[GetJPGWidthHeight]:jpeg format error!\n"));
 
         fclose(pfRead);
+        return Finished;
+    }
+
+    static int GetJPEGWidthHeight(const char* path, unsigned int* punWidth, unsigned int* punHeight)
+    {
+        int Finished = 0;
+        unsigned char marker1, marker2, ucHigh, ucLow;
+        FILE* pfRead;
+
+        *punWidth = 0;
+        *punHeight = 0;
+
+        if (fopen_s(&pfRead, path, "rb") != 0)
+        {
+            _debug_to(1, ("[GetJPEGWidthHeight]:can't open file:%s\n"), path);
+            return -1;
+        }
+
+        while (!Finished)
+        {
+            if (!fread(&marker1, sizeof(char), 1, pfRead) || !fread(&marker2, sizeof(char), 1, pfRead))
+            {
+                Finished = -2;
+                break;
+            }
+
+            if (marker1 == 0xFF && marker2 == 0xD8) 
+            {
+                // 找到SOF0, 该标记后分别为图片的高度(2字节)、图片的宽度(2字节)
+                unsigned int readlen = 0;
+                unsigned short marker;
+                while ((readlen<256) && (fread(&marker, sizeof(short), 1, pfRead)))
+                {
+                    readlen += 2;
+                    if (marker == 0xC2FF)
+                    {
+                        fseek(pfRead, 3L, SEEK_CUR);
+
+                        fread(&ucHigh, sizeof(char), 1, pfRead);
+                        fread(&ucLow, sizeof(char), 1, pfRead);
+                        *punHeight = (unsigned int)MAKEUS(ucHigh, ucLow);
+                        fread(&ucHigh, sizeof(char), 1, pfRead);
+                        fread(&ucLow, sizeof(char), 1, pfRead);
+                        *punWidth = (unsigned int)MAKEUS(ucHigh, ucLow);
+                        Finished = 0;
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+        fclose(pfRead);
+
         return Finished;
     }
 
@@ -285,24 +440,30 @@ namespace picture
             *pBitCount = 24;
             format = "bmp";
         }
-        else if (!strncmp(path + len - 3, "jpg", 3))
-        {
-            GetJPEGWidthHeight(path, pWidth, pHeight);
-            *pBitCount = 32;
-            format = "jpg";
-        }
         else if (!strncmp(path + len - 3, "png", 3))
         {
             GetPNGWidthHeight(path, pWidth, pHeight);
             *pBitCount = 32;
             format = "png";
         }
+        else if ((!strncmp(path + len - 3, "jpg", 3)))
+        {
+            GetJPGWidthHeight(path, pWidth, pHeight);
+            *pBitCount = 32;
+            format = "jpg";
+        }
+        else if ((!strncmp(path + len - 4, "jpeg", 4)))
+        {
+            GetJPEGWidthHeight(path, pWidth, pHeight);
+            *pBitCount = 32;
+            format = "jpeg";
+        }
         else
         {
             *pWidth = 0; *pHeight = 0;
             *pBitCount = 32;
             format = "";
-            _debug_to(1, ("[GetPicWidthHeight]:only support jpg and png\n"));
+            _debug_to(1, ("[GetPicWidthHeight]: not support picture type...[%s]\n"), path);
         }
     }
 }
@@ -782,9 +943,9 @@ namespace base64
 
         BIO_get_mem_ptr(bio, &bufferPtr);
         std::string output(bufferPtr->data, bufferPtr->length);
-
         BIO_free_all(bio);
 
+        remove_n(output);
         return output;
     }
     static std::string jwt_base64_decode(const std::string& input)
@@ -804,22 +965,18 @@ namespace base64
         return str_ret;
     }
 
-    static std::string jwt_encode(const std::string& header, const std::string& payload, const std::string& key)
+    static std::string jwt_encode(std::string& header, std::string& payload, std::string& key)
     {
         std::string header_b64 = jwt_base64_encode(header);     
-        remove_n(header_b64);
-
         std::string payload_b64 = jwt_base64_encode(payload);   
-        remove_n(payload_b64);
 
         std::string signature_hac_before = header_b64 + "." + payload_b64;
         std::string signature_hac_after = hmac_sha256(key, signature_hac_before);
         std::string signature_b64 = jwt_base64_encode(signature_hac_after);  
-        remove_n(signature_b64);
 
         return header_b64 + "." + payload_b64 + "." + signature_b64;
     }
-    static bool jwt_decode(const std::string& token, const std::string& key, std::string& header, std::string& payload)
+    static bool jwt_decode(std::string& token, std::string& key, std::string& header, std::string& payload)
     {
         std::vector<std::string> parts = split(token, '.');
         if (parts.size() != 3)
@@ -838,7 +995,7 @@ namespace base64
         return true;
     }
 
-    static bool string_to_token(const std::string header, const std::string payload, const std::string key, std::string& token)
+    static bool string_to_token(std::string header, std::string payload, std::string key, std::string& token)
     {
         bool result = true;
         token = jwt_encode(header, payload, key);
@@ -847,7 +1004,7 @@ namespace base64
 
         return result;
     }
-    static bool token_to_string(const std::string token, const std::string key, std::string& header, std::string& payload)
+    static bool token_to_string(std::string& header, std::string& payload, std::string& key, std::string token)
     {
         return jwt_decode(token, key, header, payload);
     }

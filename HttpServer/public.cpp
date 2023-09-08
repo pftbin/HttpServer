@@ -1,5 +1,38 @@
 #include "public.h"
 
+//get exe path 
+#if defined WIN32
+#include <direct.h>
+std::string getexepath()
+{
+    char* buffer = NULL;
+    buffer = _getcwd(NULL, 0);
+    if (buffer)
+    {
+        std::string path = buffer;
+        free(buffer);
+        return path;
+    }
+
+    return "";
+}
+#else
+#include <unistd.h>
+std::string getexepath()
+{
+    char* buffer = NULL;
+    buffer = getcwd(NULL, 0);
+    if (buffer)
+    {
+        std::string path = buffer;
+        free(buffer);
+        return path;
+    }
+
+    return "";
+}
+#endif
+
 //create folder
 #ifdef _WIN32
     #include <direct.h>
@@ -78,6 +111,37 @@ bool create_directories(const char* path)
     }
 
     return create_directory(path);
+}
+
+//delete folder
+#include <filesystem>
+#include <experimental/filesystem>
+//_SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING  忽略C++17 不使用<experimental/filesystem>警告
+namespace fs = std::experimental::filesystem;
+bool delete_directories(const char* path)
+{
+    fs::path folderPath(path);
+    if (!fs::exists(folderPath))
+        return true;
+
+    if (fs::is_directory(folderPath))
+    {
+        for (const auto& entry : fs::directory_iterator(folderPath)) 
+        {
+            if (fs::is_directory(entry)) 
+            {
+                std::string filepath = entry.path().generic_string();
+                delete_directories(filepath.c_str());
+            }
+            else 
+            {
+                fs::remove(entry.path());
+            }
+        }
+        fs::remove(folderPath);
+    }
+
+    return true;
 }
 
 //
@@ -344,7 +408,7 @@ void globalSpliteString(const std::string& str, std::vector<std::string>& strVec
 
 void globalCreateGUID(std::string& GuidStr)
 {
-    std::string result = md5::getStringMD5(gettimecode());
+    std::string result = getguidtext();
     GuidStr = result;
 }
 
@@ -464,7 +528,7 @@ std::string getDispositionValue(const std::string source, int pos, const std::st
     }
 }
 
-std::string gettimecode()
+std::string gettimetext_now()
 {
     std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
@@ -473,8 +537,7 @@ std::string gettimecode()
     std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::localtime(&now));//24
     return buf;
 }
-
-long long   gettimecount()
+long long gettimecount_now()
 {
     long long set = 0;
     time_t timep;
@@ -482,8 +545,37 @@ long long   gettimecount()
 
     return set;
 }
+bool gettimecount_interval(std::string timetext_start, std::string timetext_end, long long& interval)//用于计算两个时间的差值,单位为秒
+{
+    std::string timestart = "", timeend = "";
+    timestart = str_replace(timetext_start, " ", "-"); timestart = str_replace(timestart, ":", "-");
+    timeend = str_replace(timetext_end, " ", "-"); timeend = str_replace(timeend, ":", "-");
 
-std::string getmessageid()
+    std::vector<std::string> vecStart,vecEnd;
+    globalSpliteString(timestart, vecStart, std::string("-"));
+    globalSpliteString(timeend, vecEnd, std::string("-"));
+    if (vecStart.size() != 6 || vecEnd.size() != 6)
+        return false;
+
+    long long year = max(0,atoi(vecEnd[0].c_str()) - atoi(vecStart[0].c_str()));
+    long long month = max(0,atoi(vecEnd[1].c_str()) - atoi(vecStart[1].c_str()));
+    long long day = max(0,atoi(vecEnd[2].c_str()) - atoi(vecStart[2].c_str()));
+    long long H = max(0,atoi(vecEnd[3].c_str()) - atoi(vecStart[3].c_str()));
+    long long M = max(0,atoi(vecEnd[4].c_str()) - atoi(vecStart[4].c_str()));
+    long long S = max(0,atoi(vecEnd[5].c_str()) - atoi(vecStart[5].c_str()));
+
+    interval = 0;
+    interval += (year * (long long)946080000);
+    interval += (month * (long long)2592000);
+    interval += (day * (long long)86400);
+    interval += (H * (long long)3600);
+    interval += (M * (long long)60);
+    interval += (S);
+
+    return true;
+}
+
+std::string gettime_custom()//用于判断某时段,进行定时操作
 {
     std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
@@ -491,6 +583,68 @@ std::string getmessageid()
     std::strftime(buf, sizeof(buf), "%Y%m%d%H%M%S", std::localtime(&now));//24
     return buf;
 }
+
+std::string gettimetext_millisecond(int millisecond)
+{
+    std::string result = "00:00:00";
+    if (millisecond <= 0)
+        return result;
+
+    int H = (millisecond / (3600 * 1000));
+    int M = (millisecond % (3600 * 1000)) / (60 * 1000);
+    int S = (millisecond % (60 * 1000)) / 1000;
+
+    char buff[256] = { 0 };
+    snprintf(buff, 256, "%02d:%02d:%02d", H, M, S); result = buff;
+
+    return result;
+}
+std::string gettimetext_framecount(int framecount, int fps)
+{
+    std::string result = "00:00:00";
+    if (framecount <= 0 || fps <= 0)
+        return result;
+
+    int H = (framecount / (3600 * fps));
+    int M = (framecount % (3600 * fps)) / (60 * fps);
+    int S = (framecount % (60 * fps)) / fps;
+
+    char buff[256] = { 0 };
+    snprintf(buff, 256, "%02d:%02d:%02d", H, M, S); result = buff;
+
+    return result;
+}
+
+std::string gettimeshow_second(long long second)
+{
+    std::string result = "0天00时00分00秒";
+    if (second <= 0)
+        return result;
+
+    int D = (second / 86400);
+    int H = (second % 86400) / 3600;
+    int M = (second % 3600) / 60;
+    int S = (second % 60);
+
+    char buff[256] = { 0 };
+    snprintf(buff, 256, "%d天%02d时%02d分%02d秒", D, H, M, S); result = buff;
+
+    return result;
+}
+std::string gettimeshow_day(long long second)
+{
+    std::string result = "0天";
+    if (second <= 0)
+        return result;
+
+    int D = (second / 86400);
+
+    char buff[256] = { 0 };
+    snprintf(buff, 256, "%d天", D); result = buff;
+
+    return result;
+}
+
 
 bool is_existfile(const char* filename)
 {
@@ -503,6 +657,19 @@ bool is_existfile(const char* filename)
 
 bool is_imagefile(const char* filename)
 {
+    std::string str_filename = filename;
+    std::transform(str_filename.begin(), str_filename.end(), str_filename.begin(), ::tolower);
+    if (str_filename.find(".jpg") != std::string::npos)
+        return true;
+    if (str_filename.find(".jpeg") != std::string::npos)
+        return true;
+    if (str_filename.find(".png") != std::string::npos)
+        return true;
+    if (str_filename.find(".bmp") != std::string::npos)
+        return true;
+
+    return false;
+    //不使用以下方法判断文件格式
     FILE* fp = fopen(filename, "rb");
     if (!fp) 
         return false;
@@ -533,6 +700,15 @@ bool is_imagefile(const char* filename)
 
 bool is_videofile(const char* filename)
 {
+    std::string str_filename = filename;
+    std::transform(str_filename.begin(), str_filename.end(), str_filename.begin(), ::tolower);
+    if (str_filename.find(".mp4") != std::string::npos)
+        return true;
+    if (str_filename.find(".avi") != std::string::npos)
+        return true;
+
+    return false;
+    //不使用以下方法判断文件格式
     FILE* fp = fopen(filename, "rb");
     if (!fp)
         return false;
@@ -568,6 +744,15 @@ bool is_videofile(const char* filename)
 
 bool is_audiofile(const char* filename)
 {
+    std::string str_filename = filename;
+    std::transform(str_filename.begin(), str_filename.end(), str_filename.begin(), ::tolower);
+    if (str_filename.find(".mp3") != std::string::npos)
+        return true;
+    if (str_filename.find(".wav") != std::string::npos)
+        return true;
+
+    return false;
+    //不使用以下方法判断文件格式
     FILE* fp = fopen(filename, "rb");
     if (!fp)
         return false;

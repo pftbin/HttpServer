@@ -6,7 +6,7 @@
 //custom loger
 static FileWriter loger_vdooperate("videoOperate.log");
 
-bool getimage_fromvideo(std::string videofilepath, std::string& imagefilepath)
+bool getimage_fromvideo(std::string videofilepath, std::string& imagefilepath, unsigned int& videowidth, unsigned int& videoheight)
 {
     if (videofilepath.empty() || imagefilepath.empty())
     {
@@ -40,7 +40,22 @@ bool getimage_fromvideo(std::string videofilepath, std::string& imagefilepath)
     }
 
     //指定图片宽高
-    int width = 480,height = 270;
+    int width = 480, height = 270;
+    videowidth = cap.get(CAP_PROP_FRAME_WIDTH);
+    videoheight = cap.get(CAP_PROP_FRAME_HEIGHT);
+    if (videowidth > videoheight)
+    {
+        width = 480;
+        double dbscale = (double)width / (double)videowidth;
+        height = (int)((double)videoheight * dbscale);//固定宽度,缩放高度
+      
+    }
+    else
+    {
+        height = 480;
+        double dbscale = (double)height / (double)videoheight;
+        width = (int)((double)videowidth * dbscale);//固定高度,缩放宽度
+    }
     resize(frame, frame, Size(width, height));
 
     //保存为图片文件
