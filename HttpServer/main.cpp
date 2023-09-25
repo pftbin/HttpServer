@@ -145,7 +145,7 @@ typedef struct _actorinfo
 		ip = item.ip;
 		port = item.port;
 	}
-}actorinfo, * pactorinfo;
+} actorinfo, *pactorinfo;
 typedef std::map<std::string, actorinfo> ACTORINFO_MAP;
 //TTS+W2L
 ACTORINFO_MAP Container_TTSW2LActor;
@@ -666,7 +666,7 @@ typedef struct _fileupload
 		removelocal = item.removelocal;
 	}
 
-}fileupload, * pfileupload;
+} fileupload, *pfileupload;
 void* pthread_awsupload_thread(void* arg)
 {
 	_debug_to(0, ("pthread_awsupload_thread start...\n"));
@@ -856,7 +856,7 @@ typedef struct tagDGHDR
 	u_long      msg;
 	u_short     checksum;	// checksum of header
 	u_short     off;		// data offset in the packet
-}DG_HDR, * LPDG_HDR;
+} DG_HDR, *LPDG_HDR;
 bool IsValidPacket_DGHDR(const char* buf, int len)
 {
 	LPDG_HDR pHdr = (LPDG_HDR)buf;
@@ -1028,7 +1028,7 @@ typedef struct tagPLAYOUTNODE
 	u_short		channel;
 	u_short		studio;
 	u_long		type;
-}PLAYOUTNODE, * LPPLAYOUTNODE;
+} PLAYOUTNODE, *LPPLAYOUTNODE;
 typedef struct tagPNPHDR
 {
 	u_char			ver;		// version
@@ -1040,7 +1040,7 @@ typedef struct tagPNPHDR
 	u_long			msg;
 	u_short			checksum;	// checksum of header
 	u_short			off;		// data offset in the packet
-}PNP_HDR, * LPPNP_HDR;
+} PNP_HDR, *LPPNP_HDR;
 bool IsValidPacket_PNPHDR(const char* buf, int len)
 {
 	LPPNP_HDR pHdr = (LPPNP_HDR)buf;
@@ -1426,6 +1426,158 @@ bool token_decode(authorizationinfo& authorizationitem, std::string token)
 
 #endif
 
+#if 1 //数据库函数组合,快速调用
+
+//用户剩余可用时间
+bool getremaintime_user(int userid, long long& remaintime)
+{
+	//找到租户id
+	int root_userid = userid;
+	if (!digitalmysql::isrootuser_id(userid))
+	{
+		if (!digitalmysql::getuserid_parent(userid, root_userid))
+			return false;
+	}
+
+	//获取租户usercode
+	std::string root_usercode = "";
+	if (!digitalmysql::getusercode_id(root_userid, root_usercode))
+	{
+		return false;
+	}
+		
+	//获取租户可用时间
+	if(!digitalmysql::getuserinfo_remaintime(root_usercode, remaintime))
+	{
+		return false;
+	}
+
+	return true;
+}
+bool setremaintime_user(int userid, long long remaintime)
+{
+	//找到租户id
+	int root_userid = userid;
+	if (!digitalmysql::isrootuser_id(userid))
+	{
+		if (!digitalmysql::getuserid_parent(userid, root_userid))
+			return false;
+	}
+
+	//获取租户usercode
+	std::string root_usercode = "";
+	if (!digitalmysql::getusercode_id(root_userid, root_usercode))
+	{
+		return false;
+	}
+
+	//设置租户可用时间
+	if (!digitalmysql::setuserinfo_remaintime(root_usercode, remaintime))
+	{
+		return false;
+	}
+
+	return true;
+}
+//数字人剩余可用时间
+bool getremaintime_human(int userid, std::string humanid, long long& remaintime)
+{
+	//0-【查询id包括：账户本身、子账户/父账户】
+	std::vector<int> vecbelongids;
+	if (digitalmysql::isrootuser_id(userid))
+	{
+		//root类型查子账户
+		digitalmysql::getuserid_childs(userid, vecbelongids);
+	}
+	else
+	{
+		//非root用户查父账户
+		int parentid = -1;
+		digitalmysql::getuserid_parent(userid, parentid);
+		vecbelongids.push_back(parentid);
+	}
+	vecbelongids.push_back(userid);//添加账户本身
+
+	if (!digitalmysql::gethumaninfo_remaintime(humanid, vecbelongids, remaintime))
+		return false;
+
+	return true;
+}
+bool setremaintime_human(int userid, std::string humanid, long long remaintime)
+{
+	//0-【查询id包括：账户本身、子账户/父账户】
+	std::vector<int> vecbelongids;
+	if (digitalmysql::isrootuser_id(userid))
+	{
+		//root类型查子账户
+		digitalmysql::getuserid_childs(userid, vecbelongids);
+	}
+	else
+	{
+		//非root用户查父账户
+		int parentid = -1;
+		digitalmysql::getuserid_parent(userid, parentid);
+		vecbelongids.push_back(parentid);
+	}
+	vecbelongids.push_back(userid);//添加账户本身
+
+	if (!digitalmysql::sethumaninfo_remaintime(humanid, vecbelongids, remaintime))
+		return false;
+
+	return true;
+}
+//数字人标签
+bool getlabelstring_human(int userid, std::string humanid, std::string& labelstring)
+{
+	//0-【查询id包括：账户本身、子账户/父账户】
+	std::vector<int> vecbelongids;
+	if (digitalmysql::isrootuser_id(userid))
+	{
+		//root类型查子账户
+		digitalmysql::getuserid_childs(userid, vecbelongids);
+	}
+	else
+	{
+		//非root用户查父账户
+		int parentid = -1;
+		digitalmysql::getuserid_parent(userid, parentid);
+		vecbelongids.push_back(parentid);
+	}
+	vecbelongids.push_back(userid);//添加账户本身
+
+	if (!digitalmysql::gethumaninfo_label(humanid, vecbelongids, labelstring))
+		return false;
+
+	return true;
+}
+bool setlabelstring_human(int userid, std::string humanid, std::string labelstring)
+{
+	//0-【查询id包括：账户本身、子账户/父账户】
+	std::vector<int> vecbelongids;
+	if (digitalmysql::isrootuser_id(userid))
+	{
+		//root类型查子账户
+		digitalmysql::getuserid_childs(userid, vecbelongids);
+	}
+	else
+	{
+		//非root用户查父账户
+		int parentid = -1;
+		digitalmysql::getuserid_parent(userid, parentid);
+		vecbelongids.push_back(parentid);
+	}
+	vecbelongids.push_back(userid);//添加账户本身
+
+	if (!digitalmysql::sethumaninfo_label(humanid, vecbelongids, labelstring))
+		return false;
+
+	return true;
+}
+
+
+
+#endif
+
 #if 1 //接口返回json
 
 std::string getjson_linyun_error(bool state, std::string message = "")
@@ -1455,7 +1607,7 @@ std::string getjson_error(int code, std::string errmsg, std::string data = "")
 	return result;
 }
 
-//
+//登录返回token
 std::string getjson_userlogin(authorizationinfo authorizationitem)
 {
 	bool result = true;
@@ -1495,9 +1647,15 @@ std::string getjson_userlogin(authorizationinfo authorizationitem)
 		int AdminFlag = 0;
 		digitalmysql::getuserinfo_adminflag(authorizationitem.usercode, AdminFlag);
 
+
+		long long RemainTime = 0;
+		std::string UserRemainTime = "未知";
+		if (getremaintime_user(UserID, RemainTime))
+			UserRemainTime = gettimeshow_second(RemainTime);
+
 		std::string data = "";
 		char buff[BUFF_SZ] = { 0 };
-		snprintf(buff, BUFF_SZ, "\"token\":\"%s\",\"UserID\":%d,\"UserName\":\"%s\",\"AdminFlag\":%d", str_token.c_str(), UserID, UserName.c_str(), AdminFlag); data = buff;
+		snprintf(buff, BUFF_SZ, "\"token\":\"%s\",\"UserID\":%d,\"UserName\":\"%s\",\"AdminFlag\":%d, \"UserRemainTime\": \"%s\"", str_token.c_str(), UserID, UserName.c_str(), AdminFlag, UserRemainTime.c_str()); data = buff;
 		result_str = getjson_error(0, errmsg, data);
 	}
 	else
@@ -1510,26 +1668,31 @@ std::string getjson_userlogin(authorizationinfo authorizationitem)
 }
 
 //数字人列表
-std::string getjson_humanlistinfo(std::string humanid = "",int belongid = -1)
+std::string getjson_humanlistinfo(std::string humanid = "",int userid = -1)
 {
 	bool result = true;
 	std::string errmsg = "";
 	std::string result_str = "";
 
-	//0-selsetids【查询id包括：账户本身、子账户、父账户】
-	std::vector<int> vecselectids;
-	digitalmysql::getuserid_childs(belongid, vecselectids);
-	vecselectids.push_back(belongid);
-	if (!digitalmysql::isrootuser_id(belongid))//root类型用户不再查父账户
+	//0-【查询id包括：账户本身、子账户/父账户】
+	std::vector<int> vecbelongids;
+	if (digitalmysql::isrootuser_id(userid))
 	{
-		int parentid = -1;
-		digitalmysql::getuserid_parent(belongid, parentid);
-		vecselectids.push_back(parentid);
+		//root类型查子账户
+		digitalmysql::getuserid_childs(userid, vecbelongids);
 	}
+	else
+	{
+		//非root用户查父账户
+		int parentid = -1;
+		digitalmysql::getuserid_parent(userid, parentid);
+		vecbelongids.push_back(parentid);
+	}
+	vecbelongids.push_back(userid);//添加账户本身
 	
 	//1-getlist
 	digitalmysql::VEC_HUMANINFO vechumaninfo;
-	result = digitalmysql::gethumanlistinfo(humanid, vechumaninfo, vecselectids);
+	result = digitalmysql::gethumanlistinfo(humanid, vecbelongids, vechumaninfo);
 	_debug_to(0, ("gethumanlistinfo: vechumaninfo size=%d\n"), vechumaninfo.size());
 	if (!result)
 		errmsg = "gethumanlistinfo from mysql failed";
@@ -1551,10 +1714,10 @@ std::string getjson_humanlistinfo(std::string humanid = "",int belongid = -1)
 
 		//RemainTime
 		long long human_remaintime = 0;
-		if (digitalmysql::gethumaninfo_remaintime(vechumaninfo[i].humanid, human_remaintime))
+		if (digitalmysql::gethumaninfo_remaintime(vechumaninfo[i].id, human_remaintime))
 			result_item.HumanRemainTime = gettimeshow_day(human_remaintime);
 		//Available
-		result_item.HumanAvailable = digitalmysql::isavailable_humanid(vechumaninfo[i].humanid);
+		result_item.HumanAvailable = vechumaninfo[i].available;
 
 		//KeyFrame
 		std::string format = "";
@@ -1663,26 +1826,31 @@ std::string getjson_actionlistinfo(std::string humanid)
 }
 
 //任务列表-查询最后编辑的版本
-std::string getjson_humanhistoryinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo, std::string order_key = "createtime", int order_way = 1, int pagesize = 10, int pagenum = 1,int belongid = -1)
+std::string getjson_humanhistoryinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo, std::string order_key = "createtime", int order_way = 1, int pagesize = 10, int pagenum = 1,int userid = -1)
 {
 	bool result = true;
 	std::string errmsg = "";
 	std::string result_str = "";
 
-	//0-selsetids【查询id包括：账户本身、子账户、父账户】
-	std::vector<int> vecselectids;
-	digitalmysql::getuserid_childs(belongid, vecselectids);
-	vecselectids.push_back(belongid);
-	if (!digitalmysql::isrootuser_id(belongid))//root类型用户不再查父账户
+	//0-【查询id包括：账户本身、子账户/父账户】
+	std::vector<int> vecbelongids;
+	if (digitalmysql::isrootuser_id(userid))
 	{
-		int parentid = -1;
-		digitalmysql::getuserid_parent(belongid, parentid);
-		vecselectids.push_back(parentid);
+		//root类型查子账户
+		digitalmysql::getuserid_childs(userid, vecbelongids);
 	}
+	else
+	{
+		//非root用户查父账户
+		int parentid = -1;
+		digitalmysql::getuserid_parent(userid, parentid);
+		vecbelongids.push_back(parentid);
+	}
+	vecbelongids.push_back(userid);//添加账户本身
 
 	//1-getlist
 	int total = 0; digitalmysql::VEC_TASKINFO vectaskhistory;
-	result = digitalmysql::gettaskhistoryinfo(vecfilterinfo, order_key, order_way, pagesize, pagenum, total, vectaskhistory, vecselectids);
+	result = digitalmysql::gettaskhistoryinfo(vecfilterinfo, order_key, order_way, pagesize, pagenum, total, vectaskhistory, vecbelongids);
 	_debug_to(0, ("get taskhistory size=%d\n"), vectaskhistory.size());
 	if (!result)
 		errmsg = "get taskhistory from mysql failed";
@@ -1927,26 +2095,31 @@ std::string getjson_taskgroupinfo(std::string groupid)
 }
 
 //背景资源列表
-std::string getjson_tasksourcelistinfo(int belongid = -1)
+std::string getjson_tasksourcelistinfo(int userid = -1)
 {
 	bool result = true;
 	std::string errmsg = "";
 	std::string result_str = "";
 
-	//0-selsetids【查询id包括：账户本身、子账户、父账户】
-	std::vector<int> vecselectids;
-	digitalmysql::getuserid_childs(belongid, vecselectids);
-	vecselectids.push_back(belongid);
-	if (!digitalmysql::isrootuser_id(belongid))//root类型用户不再查父账户
+	//0-【查询id包括：账户本身、子账户/父账户】
+	std::vector<int> vecbelongids;
+	if (digitalmysql::isrootuser_id(userid))
 	{
-		int parentid = -1;
-		digitalmysql::getuserid_parent(belongid, parentid);
-		vecselectids.push_back(parentid);
+		//root类型查子账户
+		digitalmysql::getuserid_childs(userid, vecbelongids);
 	}
+	else
+	{
+		//非root用户查父账户
+		int parentid = -1;
+		digitalmysql::getuserid_parent(userid, parentid);
+		vecbelongids.push_back(parentid);
+	}
+	vecbelongids.push_back(userid);//添加账户本身
 
 	//1-getlist
 	digitalmysql::VEC_TASKSOURCEINFO vectasksourceinfo;
-	result = digitalmysql::gettasksourcelist(vectasksourceinfo, vecselectids);
+	result = digitalmysql::gettasksourcelist(vecbelongids, vectasksourceinfo);
 	_debug_to(0, ("gettasksourcelist: vectasksourceinfo size=%d\n"), vectasksourceinfo.size());
 	if (!result)
 		errmsg = "gettasksourcelist from mysql failed";
@@ -2320,7 +2493,7 @@ typedef struct _actortaskinfo
 		FaceModelPath = item.FaceModelPath;
 	}
 
-}actortaskinfo, * pactortaskinfo;
+} actortaskinfo, *pactortaskinfo;
 typedef std::map<int, actortaskinfo> ACTORTASKINFO_MAP;
 ACTORTASKINFO_MAP Container_actortaskinfo;
 pthread_mutex_t mutex_actortaskinfo;// actortaskinfo互斥量
@@ -2392,13 +2565,18 @@ void setsocketfd_actortask(int taskid, int socketfd)
 	pthread_mutex_unlock(&mutex_actortaskinfo);
 }
 
-//从数据库获取任务
+//从数据库获取新任务
 bool getactortask_nextrun(actortaskinfo& actortaskitem)
 {
+	//设置任务扫描时间【锁定执行者】
+	std::string now_scannedtime = gettimetext_now();
+	if (!digitalmysql::setscannedtime_nextrun(now_scannedtime))
+		return false;
+
+	//根据扫描时间获取任务进行执行
 	bool result = false;
 	digitalmysql::taskinfo next_taskitem;
-	std::string now_scannedtime = gettimetext_now();
-	if (digitalmysql::setscannedtime_nextrun(now_scannedtime) && digitalmysql::gettaskinfo_nextrun(now_scannedtime, next_taskitem) && next_taskitem.taskid != 0)
+	if (digitalmysql::gettaskinfo_nextrun(now_scannedtime, next_taskitem) && next_taskitem.taskid != 0)
 	{
 		actortaskitem.ActorPriority = next_taskitem.priority;
 		actortaskitem.ActorCreateTime = gettimecount_now();
@@ -2439,24 +2617,15 @@ bool updateuserremaintime_taskid(int taskid)
 	if (find_taskitem.tasktype == 0)
 		return result;
 
-	//找到租户id
-	int root_userid = find_taskitem.belongid;
-	if (!digitalmysql::isrootuser_id(find_taskitem.belongid))
-	{
-		if (!digitalmysql::getuserid_parent(find_taskitem.belongid, root_userid))
-			return result;
-	}	
-
-	//更新租户的可用时间
-	std::string root_usercode = "";
 	long long root_remaintime = 0;
-	if (digitalmysql::getusercode_id(root_userid, root_usercode) && digitalmysql::getuserinfo_remaintime(root_usercode, root_remaintime))
+	if (getremaintime_user(find_taskitem.belongid, root_remaintime))
 	{
 		if (root_remaintime > 0)
-			root_remaintime -= (find_taskitem.video_length / find_taskitem.video_fps);
+			root_remaintime -= (find_taskitem.video_length / (int)find_taskitem.video_fps);
+		if (root_remaintime < 0) 
+			root_remaintime = 0;
 
-		if (root_remaintime < 0) root_remaintime = 0;
-		digitalmysql::setuserinfo_remaintime(root_usercode, root_remaintime);
+		setremaintime_user(find_taskitem.belongid, root_remaintime);
 		result = true;
 	}
 
@@ -2516,7 +2685,7 @@ std::string getNotifyMsg_ToActor(digitalmysql::taskinfo taskitem, digitalmysql::
 
 	//json传递
 	send_imagematting = str_replace(send_imagematting, "\"", "\\\""); //引号前加右斜杠
-	send_tasktext = str_replace(send_tasktext, "\"", " "); //内部多次传递,引号变为空格,避免转义问题
+	send_tasktext = jsonstr_replace(send_tasktext); //文本内容替换,避免json格式错误
 
 	//解码https地址参数[录制要求带中文的https路径,需转换为utf8再解码，再以ansi传递]
 	ansi_to_utf8(send_background.c_str(), send_background.length(), send_background);
@@ -2724,17 +2893,10 @@ bool getjson_runtask_now(actorinfo actoritem, actortaskinfo actortaskitem, int r
 							case  3://其他错误
 							default:
 							{
-								if (dispose_recvmsg_now(recvmsg, taskitem, json_result))
-								{
-									result = true;
-									_debug_to(0, ("[waiting...]: TaskID=%d, dispose success...\n"), actortaskitem.ActorTaskID);
-								}
-								else
-								{
-									_debug_to(0, ("[waiting...]: TaskID=%d, dispose failed...\n"), actortaskitem.ActorTaskID);
-								}
-								break;
+								result = dispose_recvmsg_now(recvmsg, taskitem, json_result);
+								_debug_to(0, ("[waiting...]: TaskID=%d, dispose over[result=%d]...\n"), actortaskitem.ActorTaskID, result);	
 							}
+							break;
 						}
 					}
 
@@ -2792,23 +2954,16 @@ bool getjson_runtask_now(actorinfo actoritem, actortaskinfo actortaskitem, int r
 						int recvcode = getcode_recvmsg(recvmsg);
 						switch (recvcode)
 						{
-						case  0://成功
-						case  1://合成错误
-						case  2://移动错误
-						case  3://其他错误
-						default:
-						{
-							if (dispose_recvmsg_now(recvmsg, taskitem, json_result))
+							case  0://成功
+							case  1://合成错误
+							case  2://移动错误
+							case  3://其他错误
+							default:
 							{
-								result = true;
-								_debug_to(0, ("[waiting...]: TaskID=%d, dispose success...\n"), actortaskitem.ActorTaskID);
-							}
-							else
-							{
-								_debug_to(0, ("[waiting...]: TaskID=%d, dispose failed...\n"), actortaskitem.ActorTaskID);
+								result = dispose_recvmsg_now(recvmsg, taskitem, json_result);
+								_debug_to(0, ("[waiting...]: TaskID=%d, dispose over[result=%d]...\n"), actortaskitem.ActorTaskID, result);
 							}
 							break;
-						}
 						}
 					}
 
@@ -2973,16 +3128,10 @@ void* pthread_recvtask_thread(void* arg)
 				case  3://其他错误
 				default:
 				{
-					if (dispose_recvmsg_recv(recvmsg, find_actortaskitem.ActorTaskID))
-					{
-						_debug_to(0, ("[recving...]: TaskID=%d, dispose success...\n"), find_actortaskitem.ActorTaskID);
-					}
-					else
-					{
-						_debug_to(0, ("[recving...]: TaskID=%d, dispose failed...\n"), find_actortaskitem.ActorTaskID);
-					}
-					break;
+					bool ret_dispose = dispose_recvmsg_recv(recvmsg, find_actortaskitem.ActorTaskID);
+					_debug_to(0, ("[recving...]: TaskID=%d, dispose over[result=%d]...\n"), find_actortaskitem.ActorTaskID, ret_dispose);
 				}
+				break;
 			}
 		}
 		long long dwE = gettimecount_now();
@@ -3010,14 +3159,19 @@ void* pthread_recvtask_thread(void* arg)
 pthread_t threadid_sendtask_thread;
 void* pthread_sendtask_thread(void* arg)
 {
+	int runtime = 0;
 	while (true)
 	{
 		//内存中删除被用户删除的任务[优化]
-		delete_actortask_invalid();
+		if ((runtime++) > 3600)//每小时检查一次
+		{
+			runtime = 0;
+			delete_actortask_invalid();
+		}
 
-	    //从数据库获取下一条任务
 		bool bFindTask = false;
 		actortaskinfo find_actortaskitem;
+	    //从数据库获取下一条任务
 		if (getactortask_nextrun(find_actortaskitem))
 		{
 			bFindTask = true;
@@ -3030,6 +3184,8 @@ void* pthread_sendtask_thread(void* arg)
 		//发送消息
 		if (bFindTask)
 		{
+			bool bSuccessAssign = false; //是否成功分配到Actor
+			size_t nFailedAssignCnt = 0; //统计失败的Actor个数
 			ACTORINFO_MAP::iterator itFindActor = Container_TTSW2LActor.begin();
 			for (itFindActor; itFindActor != Container_TTSW2LActor.end(); ++itFindActor)
 			{
@@ -3037,7 +3193,6 @@ void* pthread_sendtask_thread(void* arg)
 				short find_actorport = itFindActor->second.port;
 
 				//尝试发送消息
-				bool send_nextactor = true;
 				digitalmysql::taskinfo taskitem; digitalmysql::humaninfo taskhumanitem;
 				if (digitalmysql::gettaskinfo(find_actortaskitem.ActorTaskID, taskitem) && digitalmysql::gethumaninfo(taskitem.humanid, taskhumanitem))
 				{
@@ -3049,40 +3204,29 @@ void* pthread_sendtask_thread(void* arg)
 						int recvcode = getcode_recvmsg(recvmsg);
 						switch (recvcode)
 						{
-							case  0://成功[音频并行合成则会进入此处]
+							case  0://非预期的返回值【音频并行合成处理】
 							{
-								if (dispose_recvmsg_recv(recvmsg, find_actortaskitem.ActorTaskID))
-								{
-									_debug_to(0, ("[sending...]: TaskID=%d, dispose success...\n"), find_actortaskitem.ActorTaskID);
+								bool ret_dispose = dispose_recvmsg_recv(recvmsg, find_actortaskitem.ActorTaskID);
+								_debug_to(0, ("[sending...]: TaskID=%d, dispose over[result=%d]...\n"), find_actortaskitem.ActorTaskID, ret_dispose);
+								
+								//通知前端
+								std::string htmlnotifymsg = getNotifyMsg_ToHtml(find_actortaskitem.ActorTaskID);
+								bool notifyresult = sendRabbitmqMsg(htmlnotifymsg);
+								std::string msgresult = (notifyresult) ? ("success") : ("failed");
+								_debug_to(0, ("[sending...]: Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
 
-									//通知前端
-									std::string htmlnotifymsg = getNotifyMsg_ToHtml(find_actortaskitem.ActorTaskID);
-									bool notifyresult = sendRabbitmqMsg(htmlnotifymsg);
-									std::string msgresult = (notifyresult) ? ("success") : ("failed");
-									_debug_to(0, ("[sending...]: Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
-								}
-								else
-								{
-									_debug_to(0, ("[sending...]: TaskID=%d, dispose failed...\n"), find_actortaskitem.ActorTaskID);
-								}
-								closesocket(find_actortaskitem.ActorTaskSocket);
+								//清理内存数据
+								bSuccessAssign = true;//分配成功[异常情况]
 								delete_actortask(find_actortaskitem.ActorTaskID);
+								_debug_to(0, ("[sending...]: TaskID=%d, recv exception...\n"), find_actortaskitem.ActorTaskID);
+
+								closesocket(find_actortaskitem.ActorTaskSocket);
 								break;
 							}
 							case  1://配置错误
 							case  2://配置错误
 							{
-								if (dispose_recvmsg_recv(recvmsg, find_actortaskitem.ActorTaskID))
-								{
-									_debug_to(0, ("[sending...]: TaskID=%d, dispose success...\n"), find_actortaskitem.ActorTaskID);
-								}
-								else
-								{
-									_debug_to(0, ("[sending...]: TaskID=%d, dispose failed...\n"), find_actortaskitem.ActorTaskID);
-								}
-								closesocket(find_actortaskitem.ActorTaskSocket);
-								delete_actortask(find_actortaskitem.ActorTaskID);
-								_debug_to(0, ("[sending...]: TaskID=%d, end...\n"), find_actortaskitem.ActorTaskID);
+								nFailedAssignCnt++;
 								break;
 							}
 							case  3://忙碌
@@ -3116,9 +3260,9 @@ void* pthread_sendtask_thread(void* arg)
 								int ret_startrecv = pthread_create(&threadid_recvtask_thread, nullptr, pthread_recvtask_thread, &find_actortaskitem.ActorTaskID);
 								if (ret_startrecv == 0)
 								{
+									bSuccessAssign = true;//分配成功[正常情况]
 									setstate_actortask(find_actortaskitem.ActorTaskID, 0);//更新状态
 									setsocketfd_actortask(find_actortaskitem.ActorTaskID, find_actortaskitem.ActorTaskSocket);//保留socket
-									send_nextactor = false;
 									_debug_to(0, ("[sending...]: TaskID=%d, wait recv message...\n"), find_actortaskitem.ActorTaskID);
 								}
 								pthread_detach(threadid_recvtask_thread);
@@ -3144,10 +3288,22 @@ void* pthread_sendtask_thread(void* arg)
 					}
 				}
 
-				//已分配到Actor,不再向下一个发送任务
-				if (!send_nextactor)
+				//所有Actor都返回失败
+				if (nFailedAssignCnt >= Container_TTSW2LActor.size())
+				{
+					bSuccessAssign = true;//分配成功[异常情况]
+					delete_actortask(find_actortaskitem.ActorTaskID);
+					_debug_to(0, ("[sending...]: TaskID=%d, assign exception...\n"), find_actortaskitem.ActorTaskID);
+				}
+				
+				//不再向下一个Actor发送任务
+				if (bSuccessAssign)
 					break;
 			}
+
+			//所有Actor处于忙碌状态
+			if (bSuccessAssign == false)
+				digitalmysql::clearscannedtime_id(find_actortaskitem.ActorTaskID);//任务可再被扫描【重要】
 		}
 
 		sleep(1000);
@@ -3159,35 +3315,42 @@ void* pthread_sendtask_thread(void* arg)
 }
 
 //定时减少数字人时长[每天04:00执行]
-void pthread_updateremain_thread(void* arg)
+pthread_t threadid_sethumanremain_thread;
+void* pthread_sethumanremain_thread(void* arg)
 {
+	std::string last_monthday = "";
 	while (true)
 	{
 		std::string str_timenumber = gettime_custom();
 		if (str_timenumber.length() == 14)
 		{
-			std::string str_hour = str_timenumber.substr(8, 2);
-			if (str_hour.compare("04") == 0)
+			std::string str_monthday = str_timenumber.substr(4, 4);//2023[0922]0430
+			std::string str_hour = str_timenumber.substr(8, 2);//20230922[04]30
+			if ((str_monthday.compare(last_monthday)!=0) && (str_hour.compare("04")==0))
 			{
-				std::vector<int> vecselectids;
-				digitalmysql::VEC_HUMANINFO vechumaninfo;
-				bool result = digitalmysql::gethumanlistinfo(std::string(""), vechumaninfo, vecselectids);
+				last_monthday = str_monthday;
+				std::vector<int> vecHumanIndexs;
+				bool result = digitalmysql::gethumanid_all(vecHumanIndexs);//获取数字人ID而不是HumanID,HumanID可能重复
 				if (result)
 				{
-					for (size_t i = 0; i < vechumaninfo.size(); i++)
+					for (size_t i = 0; i < vecHumanIndexs.size(); i++)
 					{
 						long long remaintime = 0;
-						if (digitalmysql::gethumaninfo_remaintime(vechumaninfo[i].humanid, remaintime))
+						if (digitalmysql::gethumaninfo_remaintime(vecHumanIndexs[i], remaintime))
 						{
 							remaintime -= 86400;//减去一天的时间
-							digitalmysql::sethumaninfo_remaintime(vechumaninfo[i].humanid, remaintime);
+							if (remaintime < 0) remaintime = 0;
+							digitalmysql::sethumaninfo_remaintime(vecHumanIndexs[i], remaintime);
 						}
 					}
 				}
 			}
 		}
-		sleep(3600);//每个小时检测一下当前时间
+		sleep(3000*1000);//50分钟检测一下当前时间
 	}
+
+	_debug_to(0, ("pthread_sethumanremain_thread exit...\n"));
+	return nullptr;
 }
 
 #endif
@@ -4029,7 +4192,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				//2
 				if (checkrequest)
 				{
-					if (digitalmysql::sethumaninfo_label(HumanID, HumanLabel))
+					if (setlabelstring_human(req_authinfo_userid, HumanID, HumanLabel))
 					{
 						reply_item.content_string = getjson_error(0, errmsg);
 					}
@@ -4386,41 +4549,26 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				//检查-检查用户可用时间是否充足
 				if (checkrequest)
 				{
-					//找到租户id
-					int root_userid = req_authinfo_userid;
-					if (checkrequest && (!digitalmysql::isrootuser_id(req_authinfo_userid)))
-					{
-						if (!digitalmysql::getuserid_parent(req_authinfo_userid, root_userid))
-						{
-							errmsg = "get root account id failed...";
-							checkrequest = false;
-						}
-					}
-					//找到租户code
-					std::string root_usercode = "";
-					if (checkrequest && (!digitalmysql::getusercode_id(root_userid, root_usercode)))
-					{
-						errmsg = "get root account code failed...";
-						checkrequest = false;
-					}
-					//找到租户的可用时间
 					long long root_remaintime = 0;
-					if (checkrequest && (!digitalmysql::getuserinfo_remaintime(root_usercode, root_remaintime)))
+					if (!getremaintime_user(req_authinfo_userid, root_remaintime))
 					{
 						errmsg = "get root account remaintime failed...";
 						checkrequest = false;
 					}
-					if (checkrequest && root_remaintime <= 0)
+					else
 					{
-						errmsg = "root account remaintime not enough...";
-						checkrequest = false;
+						if (root_remaintime <= 0)
+						{
+							errmsg = "root account remaintime not enough...";
+							checkrequest = false;
+						}
 					}
 				}
 				//检查-检查模型可用时间是否充足
 				if (checkrequest)
 				{
 					long long human_remaintime = 0;
-					if (digitalmysql::gethumaninfo_remaintime(HumanID, human_remaintime))
+					if (getremaintime_human(req_authinfo_userid, HumanID, human_remaintime))
 					{
 						if (human_remaintime <= 0)
 						{
@@ -4527,7 +4675,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					//更新版本编辑状态
 					digitalmysql::settasklastedit(TaskGroupID, TaskID);
 
-					//添加合成任务到队列
+					//构造合成任务
 					if (digitalmysql::isexisttask_taskid(TaskID))
 					{
 						actortaskinfo new_actortaskitem;
@@ -5027,7 +5175,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 								std::string time_start = gettimetext_now();
 								std::string time_end = DeadlineTime;
 								long long human_remaintime = 0;
-								if (gettimecount_interval(time_start, time_end, human_remaintime) && digitalmysql::sethumaninfo_remaintime(humanitem_add.humanid, human_remaintime))
+								if (gettimecount_interval(time_start, time_end, human_remaintime) && setremaintime_human(humanitem_add.belongid, humanitem_add.humanid, human_remaintime))
 								{
 									new_indentitem.indentcontent = std::string("新增数字人模型: ") + HumanName + std::string(",到期时间: ") + DeadlineTime;
 									reply_item.content_string = getjson_error(0, errmsg);
@@ -5068,7 +5216,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 								std::string time_start = gettimetext_now();
 								std::string time_end = DeadlineTime;
 								long long human_remaintime = 0;
-								if (gettimecount_interval(time_start, time_end, human_remaintime) && digitalmysql::sethumaninfo_remaintime(HumanID, human_remaintime))
+								if (gettimecount_interval(time_start, time_end, human_remaintime) && setremaintime_human(RootID, HumanID, human_remaintime))
 								{
 									new_indentitem.indentcontent = std::string("续费数字人模型: ") + HumanName + std::string(",到期时间: ") + DeadlineTime;
 									reply_item.content_string = getjson_error(0, errmsg);
@@ -5515,8 +5663,8 @@ int main()
 
 	//开启合成任务分配线程
 	pthread_mutex_init(&mutex_actortaskinfo, NULL);
-	int ret_startsend = pthread_create(&threadid_sendtask_thread, nullptr, pthread_sendtask_thread, nullptr);
-	if (ret_startsend != 0)
+	int ret_sendtask = pthread_create(&threadid_sendtask_thread, nullptr, pthread_sendtask_thread, nullptr);
+	if (ret_sendtask != 0)
 	{
 		_debug_to(1, ("thread_sendtask create error\n"));
 	}
@@ -5527,14 +5675,25 @@ int main()
 
 	//开启定时清理会话线程
 	pthread_mutex_init(&mutex_sessioninfo, NULL);
-	int ret_startclear = pthread_create(&threadid_clearsession_thread, nullptr, pthread_clearsession_thread, nullptr);
-	if (ret_startclear != 0)
+	int ret_clearsession = pthread_create(&threadid_clearsession_thread, nullptr, pthread_clearsession_thread, nullptr);
+	if (ret_clearsession != 0)
 	{
 		_debug_to(1, ("thread_clearsession create error\n"));
 	}
 	else
 	{
 		_debug_to(1, ("thread_clearsession is runing\n"));
+	}
+
+	//开启定时减少数字人模型可用时长线程
+	int ret_sethumanremain = pthread_create(&threadid_sethumanremain_thread, nullptr, pthread_sethumanremain_thread, nullptr);
+	if (ret_sethumanremain != 0)
+	{
+		_debug_to(1, ("thread_sethumanremain create error\n"));
+	}
+	else
+	{
+		_debug_to(1, ("thread_sethumanremain is runing\n"));
 	}
 
 start_wait:

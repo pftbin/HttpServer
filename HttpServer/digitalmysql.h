@@ -28,10 +28,10 @@ namespace digitalmysql
 			ansi_to_utf8(filterfield.c_str(), filterfield.length(), filterfield);
 			ansi_to_utf8(filtervalue.c_str(), filtervalue.length(), filtervalue);
 		}
-	}filterinfo, * pfilterinfo;
+	} filterinfo, * pfilterinfo;
 	typedef std::vector<filterinfo> VEC_FILTERINFO;
 
-	//
+	//用户
 	typedef struct _userinfo
 	{
 		unsigned int id;
@@ -99,16 +99,17 @@ namespace digitalmysql
 	bool isvaliduser_namepwd(std::string name, std::string password);
 	bool islocaluser_namepwd(std::string name, std::string password);
 	bool getuserinfo_adminflag(std::string usercode, int& adminflag);
-	bool setuserinfo_disable(std::string usercode, int disable);
+	bool setuserinfo_disable(std::string usercode, int disabled);
 	bool setuserinfo_deadlinetime(std::string usercode, std::string deadlinetime);
 	bool getuserinfo_remaintime(std::string usercode, long long& remaintime);
 	bool setuserinfo_remaintime(std::string usercode, long long remaintime);
 
 	typedef std::vector<userinfo> VEC_USERINFO;
+	bool getuserid_allroot(std::vector<int>& vecbelongids);
 	bool getuserlistinfo(VEC_FILTERINFO& vecfilterinfo, int pagesize, int pagenum, int& total, VEC_USERINFO& vecuserinfo);
 	bool deleteuserinfo_id(int userid, std::string& errmsg);
 
-	//
+	//订单
 	typedef struct _indentinfo
 	{
 		int			id;
@@ -138,12 +139,12 @@ namespace digitalmysql
 			ansi_to_utf8(indentcontent.c_str(), indentcontent.length(), indentcontent);
 			ansi_to_utf8(createtime.c_str(), createtime.length(), createtime);
 		}
-	}indentinfo, * pindentinfo;
+	} indentinfo, * pindentinfo;
 	typedef std::vector<indentinfo> VEC_INDENTINFO;
 	bool addindentinfo(indentinfo indentitem, bool update = false);
 	bool getindentlistinfo(VEC_FILTERINFO& vecfilterinfo, int pagesize, int pagenum, int& total, VEC_INDENTINFO& vecindentinfo);
 
-	//
+	//数字人模型资源
 	typedef struct _humaninfo
 	{
 		int id;
@@ -211,21 +212,24 @@ namespace digitalmysql
 			ansi_to_utf8(mouthmodelfile.c_str(), mouthmodelfile.length(), mouthmodelfile);
 			ansi_to_utf8(facemodelfile.c_str(), facemodelfile.length(), facemodelfile);
 		}
-	}humaninfo, *phumaninfo;
+	} humaninfo, *phumaninfo;
 	bool addhumaninfo(humaninfo humanitem, bool update = false);
-	bool gethumaninfo(std::string humanid, humaninfo& humanitem);
-	bool isexisthuman_humanid(std::string humanid);
-	bool isavailable_humanid(std::string humanid);
-	bool gethumaninfo_label(std::string humanid, std::string& labelstring);
-	bool sethumaninfo_label(std::string humanid, std::string labelstring);
-	bool gethumaninfo_remaintime(std::string humanid, long long& remaintime);
-	bool sethumaninfo_remaintime(std::string humanid, long long remaintime);
-	bool deletehuman_humanid(std::string humanid, bool deletefile, std::string& errmsg);
+	bool gethumaninfo(std::string humanid, humaninfo& humanitem);//仅使用公共信息,不限制所属用户
+	bool isexisthuman_humanid(std::string humanid);//[复用的前提是数字人可用],不限制所属用户
+	bool isavailable_humanid(std::string humanid); //[复用的前提是数字人可用],不限制所属用户
+	bool gethumaninfo_label(std::string humanid, std::vector<int> vecbelongids, std::string& labelstring);//限制所属用户,避免复用引起的问题
+	bool sethumaninfo_label(std::string humanid, std::vector<int> vecbelongids, std::string labelstring);//限制所属用户,避免复用引起的问题
+	bool gethumaninfo_remaintime(std::string humanid, std::vector<int> vecbelongids, long long& remaintime);//限制所属用户,避免复用引起的问题
+	bool sethumaninfo_remaintime(std::string humanid, std::vector<int> vecbelongids, long long remaintime);//限制所属用户,避免复用引起的问题
+	bool gethumaninfo_remaintime(int id, long long& remaintime);
+	bool sethumaninfo_remaintime(int id, long long remaintime);
+	bool deletehuman_humanid(std::string humanid, bool deletefile, std::string& errmsg);//删除时复用和原数字人一起删除
 
 	typedef std::vector<humaninfo> VEC_HUMANINFO;
-	bool gethumanlistinfo(std::string humanid, VEC_HUMANINFO& vechumaninfo, std::vector<int> vecselectids);
+	bool gethumanid_all(std::vector<int>& vechumanid);
+	bool gethumanlistinfo(std::string humanid, std::vector<int> vecbelongids, VEC_HUMANINFO& vechumaninfo);
 
-	//
+	//稿件任务
 	typedef struct _taskinfo
 	{
 		int			taskid;
@@ -354,9 +358,10 @@ namespace digitalmysql
 			ansi_to_utf8(backaudio.c_str(), backaudio.length(), backaudio);
 		}
 
-	}taskinfo, * ptaskinfo;
+	} taskinfo, * ptaskinfo;
 	bool addtaskinfo(int& taskid, taskinfo taskitem, bool update = false);
 	bool gettaskinfo(int taskid, taskinfo& taskitem);
+	bool clearscannedtime_id(int taskid);
 	bool setscannedtime_nextrun(std::string scannedtime);
 	bool gettaskinfo_nextrun(std::string scannedtime, taskinfo& taskitem);
 	bool setaudiopath(int taskid, std::string audiopath);
@@ -369,40 +374,12 @@ namespace digitalmysql
 	int  gettasknextversion(std::string groupid);
 
 	typedef std::vector<taskinfo> VEC_TASKINFO;
-	bool gettaskhistoryinfo(VEC_FILTERINFO& vecfilterinfo, std::string order_key, int order_way, int pagesize, int pagenum, int& total, VEC_TASKINFO& vectaskhistory, std::vector<int> vecselectids);
+	bool gettaskhistoryinfo(VEC_FILTERINFO& vecfilterinfo, std::string order_key, int order_way, int pagesize, int pagenum, int& total, VEC_TASKINFO& vectaskhistory, std::vector<int> vecbelongids);
 	bool gettaskgroupinfo(std::string groupid, VEC_TASKINFO& vectaskgroup);
 	bool gettasklistinfo(VEC_FILTERINFO& vecfilterinfo, int pagesize, int pagenum, int& total, VEC_TASKINFO& vectasklist);
 	bool deletetask_taskid(int taskid, bool deletefile, std::string& errmsg);
 
-	//
-	typedef struct _originalvdoinfo
-	{
-		std::string humanid;
-		std::string videofile;
-		int			moodtype;
-		int			duration;
-		int			filesize;
-		int			fromtype;//0表示为用户上传，1表示为打包工具上传
-
-		_originalvdoinfo()
-		{
-			humanid = "";
-			videofile = "";
-			moodtype = -1;
-			duration = 0;
-			filesize = 0;
-			fromtype = -1;
-		}
-
-		void to_utf8()
-		{
-			ansi_to_utf8(humanid.c_str(), humanid.length(), humanid);
-			ansi_to_utf8(videofile.c_str(), videofile.length(), videofile);
-		}
-	}originalvdoinfo, *poriginalvdoinfo;
-	bool addoriginalvdo(originalvdoinfo originalvdoitem);
-
-	//
+	//背景资源
 	enum sourceType
 	{
 		source_image = 0,
@@ -443,16 +420,16 @@ namespace digitalmysql
 			ansi_to_utf8(createtime.c_str(), createtime.length(), createtime);
 		}
 
-	}tasksourceinfo, *ptasksourceinfo;
+	} tasksourceinfo, *ptasksourceinfo;
 	typedef std::vector<tasksourceinfo> VEC_TASKSOURCEINFO;
 	bool addtasksource(tasksourceinfo tasksourceitem, bool update = false);
 	bool gettasksource(int id, tasksourceinfo& tasksourceitem);
 	bool isexisttasksource_path(std::string sourcepath);
 
-	bool gettasksourcelist(VEC_TASKSOURCEINFO& vectasksource, std::vector<int> vecselectids);
+	bool gettasksourcelist(std::vector<int> vecbelongids, VEC_TASKSOURCEINFO& vectasksource);
 	bool deletetasksource_id(int id, bool deletefile, std::string& errmsg);
 
-	//
+	//动作资源
 	typedef struct _humanactioninfo
 	{
 		int			id;
@@ -491,10 +468,38 @@ namespace digitalmysql
 	bool addhumanaction(humanactioninfo humanactionitem);
 	bool getactionlist(std::string humanid, VEC_HUMANACTIONINFO& vechumanaction);
 
-	//
+	//原始视频
+	typedef struct _originalvdoinfo
+	{
+		std::string humanid;
+		std::string videofile;
+		int			moodtype;
+		int			duration;
+		int			filesize;
+		int			fromtype;//0表示为用户上传，1表示为打包工具上传
+
+		_originalvdoinfo()
+		{
+			humanid = "";
+			videofile = "";
+			moodtype = -1;
+			duration = 0;
+			filesize = 0;
+			fromtype = -1;
+		}
+
+		void to_utf8()
+		{
+			ansi_to_utf8(humanid.c_str(), humanid.length(), humanid);
+			ansi_to_utf8(videofile.c_str(), videofile.length(), videofile);
+		}
+	} originalvdoinfo, * poriginalvdoinfo;
+	bool addoriginalvdo(originalvdoinfo originalvdoitem);
+
+	//任务进度
 	int  getmergeprogress(int taskid);
 	bool setmergeprogress(int taskid, int nprogress);
-	//
+	//-1=waitmerge,0=merging,1=mergesuccess,2=mergefailed,3=movefailed
 	int  getmergestate(int taskid);
 	bool setmergestate(int taskid, int nstate);
 };

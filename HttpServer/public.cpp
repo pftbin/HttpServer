@@ -474,6 +474,19 @@ std::string str_replace(std::string str, std::string old, std::string now)
     return str;
 }
 
+std::string jsonstr_replace(std::string jsonString)
+{
+    std::string result = jsonString;
+    result = str_replace(result, "\"", "");
+    result = str_replace(result, "'",  "");
+    result = str_replace(result, "\n", "");
+    result = str_replace(result, "\r", "");
+    result = str_replace(result, "\t", "");
+    result = str_replace(result, "\\", "");
+
+    return result;
+}
+
 std::string getnodevalue(std::string info, std::string nodename)
 {
     info.erase(std::remove(info.begin(), info.end(), '\n'), info.end());

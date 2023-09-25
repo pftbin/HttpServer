@@ -28,8 +28,6 @@ namespace digitalmysql
 		utf8_to_ansi(result_utf8.c_str(), result_utf8.length(), result_ansi);
 		return result_ansi;
 	}
-
-	//
 	bool getconfig_mysql(std::string configfilepath, std::string& error)
 	{
 		long length = 0;
@@ -140,7 +138,7 @@ namespace digitalmysql
 		return sequence;
 	}
 
-	//
+	//用户
 	bool adduserinfo(userinfo useritem, bool update)
 	{
 		if (simulation) return true;
@@ -969,7 +967,7 @@ namespace digitalmysql
 
 		return ret;
 	}
-	bool setuserinfo_disable(std::string usercode, int disable)
+	bool setuserinfo_disable(std::string usercode, int disabled)
 	{
 		if (simulation) return true;
 		if (usercode.empty()) return false;
@@ -992,18 +990,18 @@ namespace digitalmysql
 
 		//
 		char sql_buff[BUFF_SZ] = { 0 };
-		snprintf(sql_buff, BUFF_SZ, "update sbt_userinfo set disable=%d where usercode='%s'", disable, usercode.c_str());//update
+		snprintf(sql_buff, BUFF_SZ, "update sbt_userinfo set disabled=%d where usercode='%s'", disabled, usercode.c_str());//update
 		_debug_to(loger_mysql, 0, ("[setuserinfo_disable] sql: %s\n"), sql_buff);
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
 		{
-			_debug_to(loger_mysql, 0, ("[setuserinfo_disable]usercode = %s, update userinfo_disable=%d success\n"), usercode.c_str(), disable);
+			_debug_to(loger_mysql, 0, ("[setuserinfo_disable]usercode = %s, update userinfo_disable=%d success\n"), usercode.c_str(), disabled);
 		}
 		else
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(loger_mysql, 1, ("[setuserinfo_disable]usercode = %s, update userinfo_disable=%d failed: %s\n"), usercode.c_str(), disable, error.c_str());
+			_debug_to(loger_mysql, 1, ("[setuserinfo_disable]usercode = %s, update userinfo_disable=%d failed: %s\n"), usercode.c_str(), disabled, error.c_str());
 		}
 		//=====================
 		mysql_close(&mysql);	//close connect
@@ -1151,6 +1149,60 @@ namespace digitalmysql
 		return ret;
 	}
 
+	bool getuserid_allroot(std::vector<int>& vecbelongids)
+	{
+		if (simulation) return true;
+
+		bool ret = true;
+		MYSQL mysql;
+		mysql_init(&mysql);		//init MYSQL
+
+		//=====================
+		if (!mysql_real_connect(&mysql, g_database_ip.c_str(), g_database_username.c_str(), g_database_password.c_str(), g_database_dbname.c_str(), g_database_port, NULL, 0)) //connect mysql
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[getuserid_allroot]MySQL database connect failed: %s\n"), error.c_str());
+			return false;
+		}
+
+		char sql_buff[BUFF_SZ] = { 0 };
+		snprintf(sql_buff, BUFF_SZ, "select id from sbt_userinfo where rootflag = 1");//select	
+		_debug_to(loger_mysql, 0, ("[getuserid_allroot] sql: %s\n"), sql_buff);
+		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
+		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
+		{
+
+			MYSQL_RES* result;						//table data struct
+			result = mysql_store_result(&mysql);    //sava dada to result
+			int rownum = mysql_num_rows(result);	//get row number
+			int colnum = mysql_num_fields(result);  //get col number
+			_debug_to(loger_mysql, 0, ("[getindentlistinfo] rownum=%d,colnum=%d\n"), rownum, colnum);
+
+			MYSQL_ROW row;							//table row data
+			while (row = mysql_fetch_row(result))
+			{
+				if (row && colnum >= 1) //keep right
+				{
+					int i = 0;
+					int row_id = atoi(row_value(row[i++]).c_str());
+					
+					vecbelongids.push_back(row_id);
+				}
+			}
+			mysql_free_result(result);				//free result
+		}
+		else
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[getuserid_allroot]mysql_query root_users failed: %s\n"), error.c_str());
+		}
+		//=====================
+		mysql_close(&mysql);	//close connect
+
+		return ret;
+	}
 	bool getuserlistinfo(VEC_FILTERINFO& vecfilterinfo, int pagesize, int pagenum, int& total, VEC_USERINFO& vecuserinfo)
 	{
 		if (simulation) return true;
@@ -1366,7 +1418,7 @@ namespace digitalmysql
 		return ret;
 	}
 
-	//
+	//订单
 	bool addindentinfo(indentinfo indentitem, bool update)
 	{
 		if (simulation) return true;
@@ -1586,7 +1638,7 @@ namespace digitalmysql
 		return ret;
 	}
 
-	//
+	//数字人模型资源
 	bool addhumaninfo(humaninfo humanitem, bool update)
 	{
 		if (simulation) return true;
@@ -1621,9 +1673,10 @@ namespace digitalmysql
 		{
 			OPERATION = "INSERT";
 			int next_id = newgetsequencenextvalue("sbt_humansource", &mysql);
-			humanitem.id = next_id;
+			if (next_id <= 0) return false;
 
 			//insert 
+			humanitem.id = next_id;
 			snprintf(sql_buff, BUFF_SZ, "insert into sbt_humansource (id,belongid,privilege,humanid,humanname,contentid,sourcefolder,available,speakspeed,seriousspeed,imagematting,keyframe,foreground,background,foreground2,background2,speakpath,pwgpath,mouthmodefile,facemodefile) values(%d, %d, %d, '%s', '%s', '%s', '%s', %d, %.6f, %.6f, '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
 				humanitem.id, humanitem.belongid, humanitem.privilege, humanitem.humanid.c_str(),
 				humanitem.humanname.c_str(), humanitem.contentid.c_str(), humanitem.sourcefolder.c_str(), humanitem.available, humanitem.speakspeed, humanitem.seriousspeed,humanitem.imagematting.c_str(), humanitem.keyframe.c_str(), humanitem.foreground.c_str(), humanitem.background.c_str(), humanitem.foreground2.c_str(), humanitem.background2.c_str(), humanitem.speakmodelpath.c_str(), humanitem.pwgmodelpath.c_str(),humanitem.mouthmodelfile.c_str(), humanitem.facemodelfile.c_str());
@@ -1839,10 +1892,37 @@ namespace digitalmysql
 
 		return ret;
 	}
-	bool gethumaninfo_label(std::string humanid, std::string& labelstring)
+	bool gethumaninfo_label(std::string humanid, std::vector<int> vecbelongids, std::string& labelstring)
 	{
 		if (simulation) return true;
 		if (humanid.empty()) return false;
+		if (vecbelongids.empty()) return false;
+
+		//where
+		std::string str_where = " where 1 "; //为了统一使用where 1,故加条件关系只能为and
+		if (!humanid.empty())//区分humanid
+		{
+			std::string temp; char tempbuff[256] = { 0 };
+			snprintf(tempbuff, 256, " and humanid = '%s' ", humanid.c_str());
+			temp = tempbuff;
+			str_where += temp;
+		}
+		if (!vecbelongids.empty())//区分用户
+		{
+			str_where += " and belongid in (";
+			for (size_t i = 0; i < vecbelongids.size(); i++)
+			{
+				std::string temp; char tempbuff[256] = { 0 };
+				snprintf(tempbuff, 256, "%d", vecbelongids[i]);
+				temp = tempbuff;
+				str_where += temp;
+
+				if (i == 9 || i == (vecbelongids.size() - 1))//最多枚举10个id
+					break;
+				str_where += ",";
+			}
+			str_where += ") ";
+		}
 
 		bool ret = true;
 		MYSQL mysql;
@@ -1860,11 +1940,12 @@ namespace digitalmysql
 			return false;
 		}
 
-		char sql_buff[BUFF_SZ] = { 0 };
-		snprintf(sql_buff, BUFF_SZ, "select contentid from sbt_humansource where humanid='%s'", humanid.c_str());//select	
-		_debug_to(loger_mysql, 0, ("[gethumaninfo_label] sql: %s\n"), sql_buff);
+		std::string str_sql = "select contentid from sbt_humansource";
+		str_sql += str_where;
+		_debug_to(loger_mysql, 0, ("[gethumaninfo_label] sql: %s\n"), str_sql.c_str());
+
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
-		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
+		if (!mysql_query(&mysql, str_sql.c_str()))	//success return 0,failed return random number
 		{
 			MYSQL_RES* result;						//table data struct
 			result = mysql_store_result(&mysql);    //sava dada to result
@@ -1897,10 +1978,37 @@ namespace digitalmysql
 
 		return ret;
 	}
-	bool sethumaninfo_label(std::string humanid, std::string labelstring)
+	bool sethumaninfo_label(std::string humanid, std::vector<int> vecbelongids, std::string labelstring)
 	{
 		if (simulation) return true;
 		if (humanid.empty()) return false;
+		if (vecbelongids.empty()) return false;
+
+		//where
+		std::string str_where = " where 1 "; //为了统一使用where 1,故加条件关系只能为and
+		if (!humanid.empty())//区分humanid
+		{
+			std::string temp; char tempbuff[256] = { 0 };
+			snprintf(tempbuff, 256, " and humanid = '%s' ", humanid.c_str());
+			temp = tempbuff;
+			str_where += temp;
+		}
+		if (!vecbelongids.empty())//区分用户
+		{
+			str_where += " and belongid in (";
+			for (size_t i = 0; i < vecbelongids.size(); i++)
+			{
+				std::string temp; char tempbuff[256] = { 0 };
+				snprintf(tempbuff, 256, "%d", vecbelongids[i]);
+				temp = tempbuff;
+				str_where += temp;
+
+				if (i == 9 || i == (vecbelongids.size() - 1))//最多枚举10个id
+					break;
+				str_where += ",";
+			}
+			str_where += ") ";
+		}
 
 		bool ret = true;
 		MYSQL mysql;
@@ -1919,12 +2027,14 @@ namespace digitalmysql
 			return false;
 		}
 
-		//
+		std::string str_sql = "";
 		char sql_buff[BUFF_SZ] = { 0 };
-		snprintf(sql_buff, BUFF_SZ, "update sbt_humansource set contentid='%s' where humanid='%s'", labelstring.c_str(), humanid.c_str());//update
-		_debug_to(loger_mysql, 0, ("[sethumaninfo_label] sql: %s\n"), sql_buff);
+		snprintf(sql_buff, BUFF_SZ, "update sbt_humansource set contentid='%s'", labelstring.c_str()); str_sql = sql_buff;
+		str_sql += str_where;
+		_debug_to(loger_mysql, 0, ("[sethumaninfo_label] sql: %s\n"), str_sql.c_str());
+
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
-		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
+		if (!mysql_query(&mysql, str_sql.c_str()))	//success return 0,failed return random number
 		{
 			_debug_to(loger_mysql, 0, ("[sethumaninfo_label]humanid = %s, update humaninfo_label success\n"), humanid.c_str());
 		}
@@ -1939,10 +2049,37 @@ namespace digitalmysql
 
 		return ret;
 	}
-	bool gethumaninfo_remaintime(std::string humanid, long long& remaintime)
+	bool gethumaninfo_remaintime(std::string humanid, std::vector<int> vecbelongids, long long& remaintime)
 	{
 		if (simulation) return true;
 		if (humanid.empty()) return false;
+		if (vecbelongids.empty()) return false;
+
+		//where
+		std::string str_where = " where 1 "; //为了统一使用where 1,故加条件关系只能为and
+		if (!humanid.empty())//区分humanid
+		{
+			std::string temp; char tempbuff[256] = { 0 };
+			snprintf(tempbuff, 256, " and humanid = '%s' ", humanid.c_str());
+			temp = tempbuff;
+			str_where += temp;
+		}
+		if (!vecbelongids.empty())//区分用户
+		{
+			str_where += " and belongid in (";
+			for (size_t i = 0; i < vecbelongids.size(); i++)
+			{
+				std::string temp; char tempbuff[256] = { 0 };
+				snprintf(tempbuff, 256, "%d", vecbelongids[i]);
+				temp = tempbuff;
+				str_where += temp;
+
+				if (i == 9 || i == (vecbelongids.size() - 1))//最多枚举10个id
+					break;
+				str_where += ",";
+			}
+			str_where += ") ";
+		}
 
 		bool ret = true;
 		MYSQL mysql;
@@ -1960,11 +2097,12 @@ namespace digitalmysql
 			return false;
 		}
 
-		char sql_buff[BUFF_SZ] = { 0 };
-		snprintf(sql_buff, BUFF_SZ, "select remaintime from sbt_humansource where humanid='%s'", humanid.c_str());//select	
-		_debug_to(loger_mysql, 0, ("[gethumaninfo_remaintime] sql: %s\n"), sql_buff);
+		std::string str_sql = "select remaintime from sbt_humansource";
+		str_sql += str_where;
+		_debug_to(loger_mysql, 0, ("[gethumaninfo_remaintime] sql: %s\n"), str_sql.c_str());
+
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
-		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
+		if (!mysql_query(&mysql, str_sql.c_str()))	//success return 0,failed return random number
 		{
 			MYSQL_RES* result;						//table data struct
 			result = mysql_store_result(&mysql);    //sava dada to result
@@ -1978,11 +2116,12 @@ namespace digitalmysql
 				int i = 0;
 				int row_remain = atoi(row_value(row[i++]).c_str());
 				remaintime = max(0, row_remain);
+				_debug_to(loger_mysql, 0, ("[gethumaninfo_remaintime]humanid = %s, select humaninfo_remaintime success,remaintime = %lld\n"), humanid.c_str(), remaintime);
 			}
 			else
 			{
 				ret = false;
-				_debug_to(loger_mysql, 1, ("[gethumaninfo_remaintime] select humaninfo_remaintime count/colnum error\n"));
+				_debug_to(loger_mysql, 1, ("[gethumaninfo_remaintime]humanid = %s, select humaninfo_remaintime count/colnum error\n"), humanid.c_str());
 			}
 			mysql_free_result(result);				//free result
 		}
@@ -1990,17 +2129,44 @@ namespace digitalmysql
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(loger_mysql, 1, ("[gethumaninfo_remaintime]mysql_query humaninfo_remaintime failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 1, ("[gethumaninfo_remaintime]humanid = %s, query humaninfo_remaintime failed: %s\n"), humanid.c_str(), error.c_str());
 		}
 		//=====================
 		mysql_close(&mysql);	//close connect
 
 		return ret;
 	}
-	bool sethumaninfo_remaintime(std::string humanid, long long remaintime)
+	bool sethumaninfo_remaintime(std::string humanid, std::vector<int> vecbelongids, long long remaintime)
 	{
 		if (simulation) return true;
 		if (humanid.empty()) return false;
+		if (vecbelongids.empty()) return false;
+
+		//where
+		std::string str_where = " where 1 "; //为了统一使用where 1,故加条件关系只能为and
+		if (!humanid.empty())//区分humanid
+		{
+			std::string temp; char tempbuff[256] = { 0 };
+			snprintf(tempbuff, 256, " and humanid = '%s' ", humanid.c_str());
+			temp = tempbuff;
+			str_where += temp;
+		}
+		if (!vecbelongids.empty())//区分用户
+		{
+			str_where += " and belongid in (";
+			for (size_t i = 0; i < vecbelongids.size(); i++)
+			{
+				std::string temp; char tempbuff[256] = { 0 };
+				snprintf(tempbuff, 256, "%d", vecbelongids[i]);
+				temp = tempbuff;
+				str_where += temp;
+
+				if (i == 9 || i == (vecbelongids.size() - 1))//最多枚举10个id
+					break;
+				str_where += ",";
+			}
+			str_where += ") ";
+		}
 
 		bool ret = true;
 		MYSQL mysql;
@@ -2018,12 +2184,14 @@ namespace digitalmysql
 			return false;
 		}
 
-		//
+		std::string str_sql = "";
 		char sql_buff[BUFF_SZ] = { 0 };
-		snprintf(sql_buff, BUFF_SZ, "update sbt_humansource set remaintime=%lld where humanid='%s'", remaintime, humanid.c_str());//update
-		_debug_to(loger_mysql, 0, ("[sethumaninfo_remaintime] sql: %s\n"), sql_buff);
+		snprintf(sql_buff, BUFF_SZ, "update sbt_humansource set remaintime=%lld", remaintime); str_sql = sql_buff;
+		str_sql += str_where;
+		_debug_to(loger_mysql, 0, ("[sethumaninfo_remaintime] sql: %s\n"), str_sql.c_str());
+
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
-		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
+		if (!mysql_query(&mysql, str_sql.c_str()))			//success return 0,failed return random number
 		{
 			_debug_to(loger_mysql, 0, ("[sethumaninfo_remaintime]humanid = %s, update humaninfo_remaintime success\n"), humanid.c_str());
 		}
@@ -2038,11 +2206,159 @@ namespace digitalmysql
 
 		return ret;
 	}
-
-	bool gethumanlistinfo(std::string humanid, VEC_HUMANINFO& vechumaninfo, std::vector<int> vecselectids)
+	bool gethumaninfo_remaintime(int id, long long& remaintime)
 	{
 		if (simulation) return true;
-		if (vecselectids.empty()) return false;
+		if (id <= 0) return false;
+
+		bool ret = true;
+		MYSQL mysql;
+		mysql_init(&mysql);		//init MYSQL
+
+		//=====================
+		if (!mysql_real_connect(&mysql, g_database_ip.c_str(), g_database_username.c_str(), g_database_password.c_str(), g_database_dbname.c_str(), g_database_port, NULL, 0)) //connect mysql
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[gethumaninfo_remaintime]MySQL database connect failed: %s\n"), error.c_str());
+			return false;
+		}
+
+		char sql_buff[BUFF_SZ] = { 0 };
+		snprintf(sql_buff, BUFF_SZ, "select remaintime from sbt_humansource where id=%d", id);//select	
+		_debug_to(loger_mysql, 0, ("[gethumaninfo_remaintime] sql: %s\n"), sql_buff);
+		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
+		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
+		{
+			MYSQL_RES* result;						//table data struct
+			result = mysql_store_result(&mysql);    //sava dada to result
+			int rownum = mysql_num_rows(result);	//get row number
+			int colnum = mysql_num_fields(result);  //get col number
+			_debug_to(loger_mysql, 0, ("[gethumaninfo_remaintime] rownum=%d,colnum=%d\n"), rownum, colnum);
+
+			MYSQL_ROW row = mysql_fetch_row(result);//table row data
+			if (row && rownum >= 1 && colnum >= 1)//keep right
+			{
+				int i = 0;
+				int row_remain = atoi(row_value(row[i++]).c_str());
+				remaintime = max(0, row_remain);
+				_debug_to(loger_mysql, 0, ("[gethumaninfo_remaintime]id = %d, select humaninfo_remaintime success,remaintime = %lld\n"), id, remaintime);
+			}
+			else
+			{
+				ret = false;
+				_debug_to(loger_mysql, 1, ("[gethumaninfo_remaintime]id = %d, select humaninfo_remaintime count/colnum error\n"), id);
+			}
+			mysql_free_result(result);				//free result
+		}
+		else
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[gethumaninfo_remaintime]id = %d, query humaninfo_remaintime failed: %s\n"), id, error.c_str());
+		}
+		//=====================
+		mysql_close(&mysql);	//close connect
+
+		return ret;
+	}
+	bool sethumaninfo_remaintime(int id, long long remaintime)
+	{
+		if (simulation) return true;
+		if (id <= 0) return false;
+
+		bool ret = true;
+		MYSQL mysql;
+		mysql_init(&mysql);		//init MYSQL
+
+		//=====================
+		if (!mysql_real_connect(&mysql, g_database_ip.c_str(), g_database_username.c_str(), g_database_password.c_str(), g_database_dbname.c_str(), g_database_port, NULL, 0)) //connect mysql
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[sethumaninfo_remaintime]MySQL database connect failed: %s\n"), error.c_str());
+			return false;
+		}
+
+		//
+		char sql_buff[BUFF_SZ] = { 0 };
+		snprintf(sql_buff, BUFF_SZ, "update sbt_humansource set remaintime=%lld where id=%d", remaintime, id);//update
+		_debug_to(loger_mysql, 0, ("[sethumaninfo_remaintime] sql: %s\n"), sql_buff);
+		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
+		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
+		{
+			_debug_to(loger_mysql, 0, ("[sethumaninfo_remaintime]id = %d, update humaninfo_remaintime success\n"), id);
+		}
+		else
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[sethumaninfo_remaintime]id = %d, update humaninfo_remaintime failed: %s\n"), id, error.c_str());
+		}
+		//=====================
+		mysql_close(&mysql);	//close connect
+
+		return ret;
+	}
+
+	bool gethumanid_all(std::vector<int>& vechumanid)
+	{
+		if (simulation) return true;
+
+		bool ret = true;
+		MYSQL mysql;
+		mysql_init(&mysql);		//init MYSQL
+
+		//=====================
+		if (!mysql_real_connect(&mysql, g_database_ip.c_str(), g_database_username.c_str(), g_database_password.c_str(), g_database_dbname.c_str(), g_database_port, NULL, 0)) //connect mysql
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[gethumancode_all]MySQL database connect failed: %s\n"), error.c_str());
+			return false;
+		}
+
+		char sql_buff[BUFF_SZ] = { 0 };
+		snprintf(sql_buff, BUFF_SZ, "select id from sbt_humansource where remaintime > 0");//select	
+		_debug_to(loger_mysql, 0, ("[gethumancode_all] sql: %s\n"), sql_buff);
+		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
+		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
+		{
+
+			MYSQL_RES* result;						//table data struct
+			result = mysql_store_result(&mysql);    //sava dada to result
+			int rownum = mysql_num_rows(result);	//get row number
+			int colnum = mysql_num_fields(result);  //get col number
+			_debug_to(loger_mysql, 0, ("[gethumancode_all] rownum=%d,colnum=%d\n"), rownum, colnum);
+
+			MYSQL_ROW row;							//table row data
+			while (row = mysql_fetch_row(result))
+			{
+				if (row && colnum >= 1) //keep right
+				{
+					int i = 0;
+					int row_id = atoi(row_value(row[i++]).c_str());
+
+					vechumanid.push_back(row_id);
+				}
+			}
+			mysql_free_result(result);				//free result
+		}
+		else
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[gethumancode_all]mysql_query human_id failed: %s\n"), error.c_str());
+		}
+		//=====================
+		mysql_close(&mysql);	//close connect
+
+		return ret;
+	}
+	bool gethumanlistinfo(std::string humanid, std::vector<int> vecbelongids, VEC_HUMANINFO& vechumaninfo)
+	{
+		if (simulation) return true;
+		if (vecbelongids.empty()) return false;
 
 		//where
 		std::string str_where = " where 1 "; //为了统一使用where 1,故加条件关系只能为and
@@ -2053,17 +2369,17 @@ namespace digitalmysql
 			temp = tempbuff;
 			str_where += temp;
 		}
-		if (!vecselectids.empty())//区分用户
+		if (!vecbelongids.empty())//区分用户
 		{
 			str_where += " and belongid in (";
-			for (size_t i = 0; i < vecselectids.size(); i++)
+			for (size_t i = 0; i < vecbelongids.size(); i++)
 			{
 				std::string temp; char tempbuff[256] = { 0 };
-				snprintf(tempbuff, 256, "%d", vecselectids[i]);
+				snprintf(tempbuff, 256, "%d", vecbelongids[i]);
 				temp = tempbuff;
 				str_where += temp;
 
-				if (i == 9 || i == (vecselectids.size() - 1))//最多枚举10个id
+				if (i == 9 || i == (vecbelongids.size() - 1))//最多枚举10个id
 					break;
 				str_where += ",";
 			}
@@ -2252,7 +2568,7 @@ namespace digitalmysql
 		return ret;
 	}
 
-	//
+	//稿件任务
 	bool addtaskinfo(int& taskid, taskinfo taskitem, bool update)
 	{
 		if (simulation) return true;
@@ -2296,10 +2612,13 @@ namespace digitalmysql
 		}
 		else
 		{
-			//insert 
 			OPERATION = "INSERT";
-			taskid = newgetsequencenextvalue("sbt_doctask", &mysql);
-			taskitem.taskid = taskid;
+			int next_id = newgetsequencenextvalue("sbt_doctask", &mysql);
+			if (next_id <= 0) return false;
+
+			//insert 
+			taskid = next_id;
+			taskitem.taskid = next_id;
 			snprintf(sql_buff, BUFF_SZ, "insert into sbt_doctask (taskid,belongid,privilege,groupid,versionname,version,tasktype,moodtype,speakspeed,taskname,createtime,scannedtime,finishtime,priority,islastedit,humanid,humanname,ssmltext,textguid,audiofile,audioformat,audiolength,videofile,keyframe,videoformat,videolength,videowidth,videoheight,videofps,foreground,front_left,front_right,front_top,front_bottom,background,backaudio,back_volume,back_loop,back_start,back_end,wnd_width,wnd_height) values(%d, %d, %d, '%s', '%s', %d, %d, %d, %.6f, '%s', '%s', '%s', '%s', %d, %d, '%s', '%s', '%s', '%s', '%s', '%s', %d, '%s', '%s', '%s', %d, %d, %d, %.2f, '%s', %.6f, %.6f, %.6f, %.6f, '%s', '%s', %.6f, %d, %d, %d, %d, %d)",
 				taskid, taskitem.belongid, taskitem.privilege, taskitem.groupid.c_str(),
 				taskitem.versionname.c_str(), taskitem.version, taskitem.tasktype, taskitem.moodtype, taskitem.speakspeed, taskitem.taskname.c_str(), taskitem.createtime.c_str(), taskitem.scannedtime.c_str(), taskitem.finishtime.c_str(), taskitem.priority, taskitem.islastedit, taskitem.humanid.c_str(), taskitem.humanname.c_str(), taskitem.ssmltext.c_str(), textguid.c_str(),
@@ -2379,7 +2698,7 @@ namespace digitalmysql
 				int row_islastedit = atoi(row_value(row[i++]).c_str());
 				std::string row_humanid   = row_value(row[i++]);
 				std::string row_humanname = row_value(row[i++]);  
-				std::string row_ssmltext = row_value(row[i++]);   row_ssmltext = str_replace(row_ssmltext, "\n", "");
+				std::string row_ssmltext = row_value(row[i++]);   row_ssmltext = jsonstr_replace(row_ssmltext);
 				std::string row_audiofile = row_value(row[i++]);
 				std::string row_audioformat = row_value(row[i++]);
 				int			row_audiolength = atoi(row_value(row[i++]).c_str());
@@ -2466,6 +2785,45 @@ namespace digitalmysql
 
 		return ret;
 	}
+	bool clearscannedtime_id(int taskid)
+	{
+		if (simulation) return true;
+		if (taskid <= 0) return false;
+
+		bool ret = true;
+		MYSQL mysql;
+		mysql_init(&mysql);		//init MYSQL
+
+		//=====================
+		if (!mysql_real_connect(&mysql, g_database_ip.c_str(), g_database_username.c_str(), g_database_password.c_str(), g_database_dbname.c_str(), g_database_port, NULL, 0)) //connect mysql
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[clearscannedtime_id]MySQL database connect failed: %s\n"), error.c_str());
+			return false;
+		}
+
+		//
+		std::string default_scannedtime = "";
+		char sql_buff[BUFF_SZ] = { 0 };
+		snprintf(sql_buff, BUFF_SZ, "update sbt_doctask set scannedtime='%s' where taskid=%d", default_scannedtime.c_str(), taskid);//clear
+		_debug_to(loger_mysql, 0, ("[clearscannedtime_id] sql: %s\n"), sql_buff);
+		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
+		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
+		{
+			_debug_to(loger_mysql, 0, ("[clearscannedtime_id]task %d, clear scannedtime success\n"), taskid);
+		}
+		else
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[clearscannedtime_id]task %d, clear scannedtime failed: %s\n"), taskid, error.c_str());
+		}
+		//=====================
+		mysql_close(&mysql);	//close connect
+
+		return ret;
+	}
 	bool setscannedtime_nextrun(std::string scannedtime)
 	{
 		if (simulation) return true;
@@ -2490,17 +2848,17 @@ namespace digitalmysql
 		std::string default_scannedtime = "";
 		char sql_buff[BUFF_SZ] = { 0 };
 		snprintf(sql_buff, BUFF_SZ, "update sbt_doctask set scannedtime='%s' where state=255 and scannedtime='%s' order by priority desc limit 1", scannedtime.c_str(), default_scannedtime.c_str());//update
-		_debug_to(loger_mysql, 0, ("[setscannedtime_nextrun] sql: %s\n"), sql_buff);
+		//_debug_to(loger_mysql, 0, ("[setscannedtime_nextrun] sql: %s\n"), sql_buff);
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
 		{
-			_debug_to(loger_mysql, 0, ("[setscannedtime_nextrun] update scannedtime success\n"));
+			//_debug_to(loger_mysql, 0, ("[setscannedtime_nextrun] update task scannedtime success\n"));
 		}
 		else
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(loger_mysql, 1, ("[setscannedtime_nextrun] update scannedtime failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 1, ("[setscannedtime_nextrun] update task scannedtime failed: %s\n"), error.c_str());
 		}
 		//=====================
 		mysql_close(&mysql);	//close connect
@@ -2562,7 +2920,7 @@ namespace digitalmysql
 				int row_islastedit = atoi(row_value(row[i++]).c_str());
 				std::string row_humanid = row_value(row[i++]);
 				std::string row_humanname = row_value(row[i++]);
-				std::string row_ssmltext = row_value(row[i++]);   row_ssmltext = str_replace(row_ssmltext, "\n", "");
+				std::string row_ssmltext = row_value(row[i++]);   row_ssmltext = jsonstr_replace(row_ssmltext);
 				std::string row_audiofile = row_value(row[i++]);
 				std::string row_audioformat = row_value(row[i++]);
 				int			row_audiolength = atoi(row_value(row[i++]).c_str());
@@ -2630,11 +2988,13 @@ namespace digitalmysql
 				taskitem.back_end = row_back_end;
 				taskitem.window_width = row_wnd_width;
 				taskitem.window_height = row_wnd_height;
+
+				_debug_to(loger_mysql, 0, ("[gettaskinfo_nextrun] select taskinfo success\n"));
 			}
 			else
 			{
 				ret = false;
-				//_debug_to(loger_mysql, 1, ("[gettaskinfo_nextrun] select taskinfo count/colnum error\n"));
+				//_debug_to(loger_mysql, 0, ("[gettaskinfo_nextrun] select taskinfo count/colnum error\n"));
 			}
 			mysql_free_result(result);				//free result
 		}
@@ -2875,35 +3235,34 @@ namespace digitalmysql
 		//
 		std::string str_update_disable = "", str_update_enable = "";
 		char buff0[BUFF_SZ] = { 0 };
-		snprintf(buff0, BUFF_SZ, "update sbt_doctask set islastedit = 0 where groupid = '%s';", groupid.c_str());//all disable
+		snprintf(buff0, BUFF_SZ, "update sbt_doctask set islastedit = 0 where groupid = '%s';", groupid.c_str());//all close
 		str_update_disable = buff0;
 
 		char buff1[BUFF_SZ] = { 0 };
-		snprintf(buff1, BUFF_SZ, "update sbt_doctask set islastedit = 1 where groupid = '%s' and taskid = %d;", groupid.c_str(), taskid);//enable one task
+		snprintf(buff1, BUFF_SZ, "update sbt_doctask set islastedit = 1 where groupid = '%s' and taskid = %d;", groupid.c_str(), taskid);//open one task
 		str_update_enable = buff1;
 
 		_debug_to(loger_mysql, 0, ("[settasklastedit] sql: %s\n"), str_update_disable);
 		mysql_query(&mysql, "SET NAMES UTF8");							//support chinese text
 		if (!mysql_query(&mysql, str_update_disable.c_str()))			//success return 0,failed return random number
 		{
-			_debug_to(loger_mysql, 0, ("[settasklastedit]disable update success\n"));
 			_debug_to(loger_mysql, 0, ("[settasklastedit] sql: %s\n"), str_update_enable);
 			if (!mysql_query(&mysql, str_update_enable.c_str()))			//success return 0,failed return random number
 			{
-				_debug_to(loger_mysql, 0, ("[settasklastedit]enable[task = %d] update success\n"), taskid);
+				_debug_to(loger_mysql, 0, ("[settasklastedit]open task %d, update lastedit success\n"), taskid);
 			}
 			else
 			{
 				ret = false;
 				std::string error = mysql_error(&mysql);
-				_debug_to(loger_mysql, 1, ("[settasklastedit]enable[task = %d] update failed: %s\n"), taskid, error.c_str());
+				_debug_to(loger_mysql, 1, ("[settasklastedit]open task %d, update lastedit failed: %s\n"), taskid, error.c_str());
 			}
 		}
 		else
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(loger_mysql, 1, ("[settasklastedit]disable update failed: %s\n"), error.c_str());
+			_debug_to(loger_mysql, 1, ("[settasklastedit]close all, update lastedit failed: %s\n"), error.c_str());
 		}
 		//=====================
 		mysql_close(&mysql);	//close connect
@@ -3013,7 +3372,7 @@ namespace digitalmysql
 		return maxversion;
 	}
 
-	bool gettaskhistoryinfo(VEC_FILTERINFO& vecfilterinfo, std::string order_key , int order_way, int pagesize, int pagenum, int& total, VEC_TASKINFO& vectaskhistory, std::vector<int> vecselectids)
+	bool gettaskhistoryinfo(VEC_FILTERINFO& vecfilterinfo, std::string order_key , int order_way, int pagesize, int pagenum, int& total, VEC_TASKINFO& vectaskhistory, std::vector<int> vecbelongids)
 	{
 		if (simulation) return true;
 
@@ -3062,17 +3421,17 @@ namespace digitalmysql
 		}
 		_debug_to(loger_mysql, 0, ("[gettaskhistoryinfo]vecfilterinfo size = %d\n"), usedfilter_count);
 
-		if (!vecselectids.empty())//区分用户
+		if (!vecbelongids.empty())//区分用户
 		{
 			str_where += " and belongid in (";
-			for (size_t i = 0; i < vecselectids.size(); i++)
+			for (size_t i = 0; i < vecbelongids.size(); i++)
 			{
 				std::string temp; char tempbuff[256] = { 0 };
-				snprintf(tempbuff, 256, "%d", vecselectids[i]);
+				snprintf(tempbuff, 256, "%d", vecbelongids[i]);
 				temp = tempbuff;
 				str_where += temp;
 
-				if (i == 9 || i == (vecselectids.size() - 1))//最多枚举10个id
+				if (i == 9 || i == (vecbelongids.size() - 1))//最多枚举10个id
 					break;
 				str_where += ",";
 			}
@@ -3194,7 +3553,7 @@ namespace digitalmysql
 					int row_islastedit = atoi(row_value(row[i++]).c_str());
 					std::string row_humanid = row_value(row[i++]);
 					std::string row_humanname = row_value(row[i++]);  
-					std::string row_ssmltext = row_value(row[i++]);   row_ssmltext = str_replace(row_ssmltext, "\n", "");
+					std::string row_ssmltext = row_value(row[i++]);   row_ssmltext = jsonstr_replace(row_ssmltext);
 					std::string row_audiofile = row_value(row[i++]);
 					std::string row_audioformat = row_value(row[i++]);
 					int			row_audiolength = atoi(row_value(row[i++]).c_str());
@@ -3351,7 +3710,7 @@ namespace digitalmysql
 					int row_islastedit = atoi(row_value(row[i++]).c_str());
 					std::string row_humanid = row_value(row[i++]);
 					std::string row_humanname = row_value(row[i++]);
-					std::string row_ssmltext = row_value(row[i++]);   row_ssmltext = str_replace(row_ssmltext, "\n", "");
+					std::string row_ssmltext = row_value(row[i++]);   row_ssmltext = jsonstr_replace(row_ssmltext);
 					std::string row_audiofile = row_value(row[i++]);
 					std::string row_audioformat = row_value(row[i++]);
 					int			row_audiolength = atoi(row_value(row[i++]).c_str());
@@ -3586,7 +3945,7 @@ namespace digitalmysql
 					int row_islastedit = atoi(row_value(row[i++]).c_str());
 					std::string row_humanid = row_value(row[i++]);
 					std::string row_humanname = row_value(row[i++]);
-					std::string row_ssmltext = row_value(row[i++]);   row_ssmltext = str_replace(row_ssmltext, "\n", "");
+					std::string row_ssmltext = row_value(row[i++]);   row_ssmltext = jsonstr_replace(row_ssmltext);
 					std::string row_audiofile = row_value(row[i++]);
 					std::string row_audioformat = row_value(row[i++]);
 					int			row_audiolength = atoi(row_value(row[i++]).c_str());
@@ -3749,53 +4108,7 @@ namespace digitalmysql
 		return ret;
 	}
 
-	//
-	bool addoriginalvdo(originalvdoinfo originalvdoitem)
-	{
-		if (simulation) return true;
-
-		bool ret = true;
-		MYSQL mysql;
-		mysql_init(&mysql);		//init MYSQL
-
-		//string covert to utf8
-		originalvdoitem.to_utf8();
-
-		//=====================
-		if (!mysql_real_connect(&mysql, g_database_ip.c_str(), g_database_username.c_str(), g_database_password.c_str(), g_database_dbname.c_str(), g_database_port, NULL, 0)) //connect mysql
-		{
-			ret = false;
-			std::string error = mysql_error(&mysql);
-			_debug_to(loger_mysql, 1, ("[addoriginalvdo]MySQL database connect failed: %s\n"), error.c_str());
-			return false;
-		}
-
-		//insert 
-		char sql_buff[BUFF_SZ] = { 0 };
-		int nextid = newgetsequencenextvalue("sbt_humanvideo", &mysql);
-		snprintf(sql_buff, BUFF_SZ, "insert into sbt_humanvideo (id,humanid,videofile,moodtype,duration,fromtype) values(%d, '%s', '%s', %d, %d, %d)",
-			nextid, originalvdoitem.humanid.c_str(), originalvdoitem.videofile.c_str(), originalvdoitem.moodtype, originalvdoitem.duration, originalvdoitem.fromtype);
-
-		//run sql
-		_debug_to(loger_mysql, 0, ("[addoriginalvdo] sql: %s\n"), sql_buff);
-		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
-		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
-		{
-			_debug_to(loger_mysql, 0, ("[addoriginalvdo]id = %d, insert success\n"), nextid);
-		}
-		else
-		{
-			ret = false;
-			std::string error = mysql_error(&mysql);
-			_debug_to(loger_mysql, 1, ("[addoriginalvdo]id = %d, insert failed: %s\n"), nextid, error.c_str());
-		}
-		//=====================
-		mysql_close(&mysql);	//close connect
-
-		return ret;
-	}
-
-	//
+	//背景资源
 	bool addtasksource(tasksourceinfo tasksourceitem, bool update)
 	{
 		if (simulation) return true;
@@ -3829,9 +4142,11 @@ namespace digitalmysql
 		}
 		else
 		{
-			//insert
 			OPERATION = "INSERT";
 			int next_id = newgetsequencenextvalue("sbt_doctasksource", &mysql);
+			if (next_id <= 0) return false;
+
+			//insert
 			snprintf(sql_buff, BUFF_SZ, "insert into sbt_doctasksource (id,belongid,privilege,sourcetype,sourcepath,sourcekeyframe,sourcewidth,sourceheight,createtime) values(%d, %d, %d, %d, '%s', '%s', %d, %d, '%s')",
 				next_id, tasksourceitem.belongid, tasksourceitem.privilege,
 				tasksourceitem.sourcetype, tasksourceitem.sourcepath.c_str(), tasksourceitem.sourcekeyframe.c_str(), tasksourceitem.sourcewidth, tasksourceitem.sourceheight, tasksourceitem.createtime.c_str());
@@ -3974,24 +4289,24 @@ namespace digitalmysql
 		return ret;
 	}
 
-	bool gettasksourcelist(VEC_TASKSOURCEINFO& vectasksource, std::vector<int> vecselectids)
+	bool gettasksourcelist(std::vector<int> vecbelongids, VEC_TASKSOURCEINFO& vectasksource)
 	{
 		if (simulation) return true;
-		if (vecselectids.empty()) return false;
+		if (vecbelongids.empty()) return false;
 
 		//where
 		std::string str_where = " where 1 "; //为了统一使用where 1,故加条件关系只能为and
-		if (!vecselectids.empty())//区分用户
+		if (!vecbelongids.empty())//区分用户
 		{
 			str_where += " and belongid in (";
-			for (size_t i = 0; i < vecselectids.size(); i++)
+			for (size_t i = 0; i < vecbelongids.size(); i++)
 			{
 				std::string temp; char tempbuff[256] = { 0 };
-				snprintf(tempbuff, 256, "%d", vecselectids[i]);
+				snprintf(tempbuff, 256, "%d", vecbelongids[i]);
 				temp = tempbuff;
 				str_where += temp;
 
-				if (i == 9 || i == (vecselectids.size() - 1))//最多枚举10个id
+				if (i == 9 || i == (vecbelongids.size() - 1))//最多枚举10个id
 					break;
 				str_where += ",";
 			}
@@ -4147,7 +4462,7 @@ namespace digitalmysql
 		return ret;
 	}
 
-	//
+	//动作资源
 	bool addhumanaction(humanactioninfo humanactionitem)
 	{
 		if (simulation) return true;
@@ -4168,24 +4483,24 @@ namespace digitalmysql
 			return false;
 		}
 
-		//insert 
-		char sql_buff[BUFF_SZ] = { 0 };
-		int nextid = newgetsequencenextvalue("sbt_humanaction", &mysql);
-		snprintf(sql_buff, BUFF_SZ, "insert into sbt_humanaction (id,humanid,actionname,actionkeyframe,actionvideo,actionduration,videowidth,videoheight) values(%d, '%s', '%s', '%s', '%s', %d, %d, %d)",
-			nextid, humanactionitem.humanid.c_str(), humanactionitem.actionname.c_str(), humanactionitem.actionkeyframe.c_str(), humanactionitem.actionvideo.c_str(), humanactionitem.actionduration, humanactionitem.videowidth, humanactionitem.videoheight);
+		int next_id = newgetsequencenextvalue("sbt_humanaction", &mysql);
+		if (next_id <= 0) return false;
 
-		//run sql
+		//insert
+		char sql_buff[BUFF_SZ] = { 0 };
+		snprintf(sql_buff, BUFF_SZ, "insert into sbt_humanaction (id,humanid,actionname,actionkeyframe,actionvideo,actionduration,videowidth,videoheight) values(%d, '%s', '%s', '%s', '%s', %d, %d, %d)",
+			next_id, humanactionitem.humanid.c_str(), humanactionitem.actionname.c_str(), humanactionitem.actionkeyframe.c_str(), humanactionitem.actionvideo.c_str(), humanactionitem.actionduration, humanactionitem.videowidth, humanactionitem.videoheight);
 		_debug_to(loger_mysql, 0, ("[addhumanaction] sql: %s\n"), sql_buff);
 		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
 		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
 		{
-			_debug_to(loger_mysql, 0, ("[addhumanaction]id = %d, insert success\n"), nextid);
+			_debug_to(loger_mysql, 0, ("[addhumanaction]id = %d, insert success\n"), next_id);
 		}
 		else
 		{
 			ret = false;
 			std::string error = mysql_error(&mysql);
-			_debug_to(loger_mysql, 1, ("[addhumanaction]id = %d, insert failed: %s\n"), nextid, error.c_str());
+			_debug_to(loger_mysql, 1, ("[addhumanaction]id = %d, insert failed: %s\n"), next_id, error.c_str());
 		}
 		//=====================
 		mysql_close(&mysql);	//close connect
@@ -4270,7 +4585,53 @@ namespace digitalmysql
 		return ret;
 	}
 
-	//
+	//原始视频
+	bool addoriginalvdo(originalvdoinfo originalvdoitem)
+	{
+		if (simulation) return true;
+
+		bool ret = true;
+		MYSQL mysql;
+		mysql_init(&mysql);		//init MYSQL
+
+		//string covert to utf8
+		originalvdoitem.to_utf8();
+
+		//=====================
+		if (!mysql_real_connect(&mysql, g_database_ip.c_str(), g_database_username.c_str(), g_database_password.c_str(), g_database_dbname.c_str(), g_database_port, NULL, 0)) //connect mysql
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[addoriginalvdo]MySQL database connect failed: %s\n"), error.c_str());
+			return false;
+		}
+
+		int next_id = newgetsequencenextvalue("sbt_humanvideo", &mysql);
+		if (next_id <= 0) return false;
+
+		//insert 
+		char sql_buff[BUFF_SZ] = { 0 };
+		snprintf(sql_buff, BUFF_SZ, "insert into sbt_humanvideo (id,humanid,videofile,moodtype,duration,fromtype) values(%d, '%s', '%s', %d, %d, %d)",
+			next_id, originalvdoitem.humanid.c_str(), originalvdoitem.videofile.c_str(), originalvdoitem.moodtype, originalvdoitem.duration, originalvdoitem.fromtype);
+		_debug_to(loger_mysql, 0, ("[addoriginalvdo] sql: %s\n"), sql_buff);
+		mysql_query(&mysql, "SET NAMES UTF8");		//support chinese text
+		if (!mysql_query(&mysql, sql_buff))			//success return 0,failed return random number
+		{
+			_debug_to(loger_mysql, 0, ("[addoriginalvdo]id = %d, insert success\n"), next_id);
+		}
+		else
+		{
+			ret = false;
+			std::string error = mysql_error(&mysql);
+			_debug_to(loger_mysql, 1, ("[addoriginalvdo]id = %d, insert failed: %s\n"), next_id, error.c_str());
+		}
+		//=====================
+		mysql_close(&mysql);	//close connect
+
+		return ret;
+	}
+
+	//任务进度
 	int  getmergeprogress(int taskid)
 	{
 		if (simulation) return 0;
@@ -4382,7 +4743,6 @@ namespace digitalmysql
 
 		return ret;
 	}
-
 	//-1=waitmerge,0=merging,1=mergesuccess,2=mergefailed,3=movefailed
 	int  getmergestate(int taskid)
 	{

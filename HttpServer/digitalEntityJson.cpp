@@ -18,6 +18,19 @@ static std::string text_replace(std::string str, std::string old, std::string no
 	return str;
 }
 
+static std::string jsontext_replace(std::string jsonString)
+{
+	std::string result = jsonString;
+	result = text_replace(result, "\"", "");
+	result = text_replace(result, "'",  "");
+	result = text_replace(result, "\n", "");
+	result = text_replace(result, "\r", "");
+	result = text_replace(result, "\t", "");
+	result = text_replace(result, "\\", "");
+
+	return result;
+}
+
 //===========================================================================================================================================
 std::string DigitalMan_Item::writeJson()
 {
@@ -101,10 +114,10 @@ std::string DigitalMan_Task::writeJson()
 	char buff[BUFF_SZ] = { 0 };
 	std::string skeyvalue = "";
 
-	//json传递
-	TaskName = text_replace(TaskName, "\"", "\\\"");//引号前加右斜杠
-	TaskVersionName = text_replace(TaskVersionName, "\"", "\\\"");//引号前加右斜杠
-	TaskInputSsml = text_replace(TaskInputSsml, "\"", "\\\"");//引号前加右斜杠
+	//文本内容替换,避免json格式错误
+	TaskName = jsontext_replace(TaskName);
+	TaskVersionName = jsontext_replace(TaskVersionName);
+	TaskInputSsml = jsontext_replace(TaskInputSsml);
 
 	snprintf(buff, BUFF_SZ, "\"TaskGroupID\":\"%s\",", TaskGroupID.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
@@ -377,8 +390,8 @@ std::string DigitalMan_TaskEx::writeJson()
 	char buff[BUFF_SZ] = { 0 };
 	std::string skeyvalue = "";
 
-	//json传递
-	TaskName = text_replace(TaskName, "\"", "\\\"");//引号前加右斜杠
+	//文本内容替换,避免json格式错误
+	TaskName = jsontext_replace(TaskName);
 
 	snprintf(buff, BUFF_SZ, "\"TaskGroupID\":\"%s\",", TaskGroupID.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;

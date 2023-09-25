@@ -169,6 +169,8 @@ bool str_prefixsame(const std::string str, const std::string prefix);
 
 std::string str_replace(std::string str, std::string old, std::string now);
 
+std::string jsonstr_replace(std::string jsonString);
+
 
 std::string getnodevalue(std::string info, std::string nodename);
 
