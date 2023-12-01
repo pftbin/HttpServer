@@ -39,12 +39,11 @@
 #include "httpConcurrencyServer.h"
 
 #pragma comment(lib,"ws2_32.lib")
-#pragma warning(disable:2362)		//忽略goto报错
 
 
 #define CHECK_REQUEST_STR(name,str,msg,result)  {if(str.empty()){msg=std::string(name)+" is error,please check request body";result&=false;}}
 #define CHECK_REQUEST_NUM(name,num,msg,result)  {if(num<0){msg=std::string(name)+" is error,please check request body";result&=false;}}
-#define ADD_FILTER_INFO(vecitem,iteminfo,field,value) {if(!value.empty()){iteminfo.filterfield = field; iteminfo.filtervalue = value; vecitem.push_back(iteminfo);}}
+#define ADD_FILTER_INFO(vecitem,iteminfo,type,field,value) {iteminfo.filtertype = type;iteminfo.filterfield = field; iteminfo.filtervalue = value; vecitem.push_back(iteminfo);}
 #define BUFF_SZ 1024*16  //system max stack size
 #define PREFIX_OSS		("OSS:")			//自定义云盘路径前缀
 
@@ -645,7 +644,7 @@ std::string osspath_from_webpath(std::string webfile_path)
 	return result;
 }
 
-//执行AWS上传任务线程
+//执行AWS上传任务线程[RecvServer使用]
 typedef struct _fileupload
 {
 	std::string filepath_local;
@@ -1309,7 +1308,7 @@ void* pthread_clearsession_thread(void* arg)
 			}
 		}
 
-		sleep(SESSION_CLEAR_TIME);
+		sleep(SESSION_CLEAR_TIME*1000);//600秒[检测会话过期]
 	}
 }
 
@@ -1428,7 +1427,7 @@ bool token_decode(authorizationinfo& authorizationitem, std::string token)
 
 #if 1 //数据库函数组合,快速调用
 
-//用户剩余可用时间
+//用户剩余可用时间更新
 bool getremaintime_user(int userid, long long& remaintime)
 {
 	//找到租户id
@@ -1479,7 +1478,7 @@ bool setremaintime_user(int userid, long long remaintime)
 
 	return true;
 }
-//数字人剩余可用时间
+//数字人剩余可用时间更新
 bool getremaintime_human(int userid, std::string humanid, long long& remaintime)
 {
 	//0-【查询id包括：账户本身、子账户/父账户】
@@ -1526,7 +1525,7 @@ bool setremaintime_human(int userid, std::string humanid, long long remaintime)
 
 	return true;
 }
-//数字人标签
+//数字人标签更新
 bool getlabelstring_human(int userid, std::string humanid, std::string& labelstring)
 {
 	//0-【查询id包括：账户本身、子账户/父账户】
@@ -1574,8 +1573,6 @@ bool setlabelstring_human(int userid, std::string humanid, std::string labelstri
 	return true;
 }
 
-
-
 #endif
 
 #if 1 //接口返回json
@@ -1610,16 +1607,18 @@ std::string getjson_error(int code, std::string errmsg, std::string data = "")
 //登录返回token
 std::string getjson_userlogin(authorizationinfo authorizationitem)
 {
-	bool result = true;
 	std::string errmsg = "success";
 	std::string result_str = "";
 
 	//检查数据库用户有效性
-	if (!digitalmysql::isvaliduser_namepwd(authorizationitem.username, authorizationitem.password))
+	if (authorizationitem.usertype != 1)//usertype=1为凌云用户
 	{
-		errmsg = "check userinfo failed,user maybe disabled...";
-		result_str = getjson_error(1, errmsg);
-		return result_str;
+		if (!digitalmysql::isvaliduser_namepwd(authorizationitem.username, authorizationitem.password))
+		{
+			errmsg = "check userinfo failed,user maybe disabled...";
+			result_str = getjson_error(1, errmsg);
+			return result_str;
+		}
 	}
 
 	//添加本次会话到数据库
@@ -1692,7 +1691,7 @@ std::string getjson_humanlistinfo(std::string humanid = "",int userid = -1)
 	
 	//1-getlist
 	digitalmysql::VEC_HUMANINFO vechumaninfo;
-	result = digitalmysql::gethumanlistinfo(humanid, vecbelongids, vechumaninfo);
+	result = digitalmysql::gethumanlist_allinfo(humanid, vecbelongids, vechumaninfo);
 	_debug_to(0, ("gethumanlistinfo: vechumaninfo size=%d\n"), vechumaninfo.size());
 	if (!result)
 		errmsg = "gethumanlistinfo from mysql failed";
@@ -1702,6 +1701,9 @@ std::string getjson_humanlistinfo(std::string humanid = "",int userid = -1)
 	DigitalMan_Items result_object;
 	for(size_t i = 0; i < vechumaninfo.size(); i++)
 	{
+		if (!vechumaninfo[i].visible)//数字人不可见[不显示数字人]
+			continue;
+
 		DigitalMan_Item result_item;
 		result_item.HumanID = vechumaninfo[i].humanid;
 		result_item.HumanName = vechumaninfo[i].humanname;
@@ -1712,12 +1714,13 @@ std::string getjson_humanlistinfo(std::string humanid = "",int userid = -1)
 		result_item.Foreground2 = webpath_from_osspath(vechumaninfo[i].foreground2);
 		result_item.Background2 = webpath_from_osspath(vechumaninfo[i].background2);
 
+		//Available
+		result_item.HumanAvailable = vechumaninfo[i].available;
+
 		//RemainTime
 		long long human_remaintime = 0;
 		if (digitalmysql::gethumaninfo_remaintime(vechumaninfo[i].id, human_remaintime))
 			result_item.HumanRemainTime = gettimeshow_day(human_remaintime);
-		//Available
-		result_item.HumanAvailable = vechumaninfo[i].available;
 
 		//KeyFrame
 		std::string format = "";
@@ -1794,8 +1797,8 @@ std::string getjson_actionlistinfo(std::string humanid)
 		DigitalMan_ActionItem result_item;
 		result_item.ActionID = vechumanactioninfo[i].id;
 		result_item.ActionName = vechumanactioninfo[i].actionname;
-		result_item.ActionKeyframe = vechumanactioninfo[i].actionkeyframe;
-		result_item.ActionVideo = vechumanactioninfo[i].actionvideo;
+		result_item.ActionVideo = webpath_from_osspath(vechumanactioninfo[i].actionavi);
+		result_item.ActionKeyframe = webpath_from_osspath(vechumanactioninfo[i].actionkeyframe);
 		result_item.ActionDuration = vechumanactioninfo[i].actionduration;
 		result_item.VideoWidth = vechumanactioninfo[i].videowidth;
 		result_item.VideoHeight = vechumanactioninfo[i].videoheight;
@@ -1832,7 +1835,7 @@ std::string getjson_humanhistoryinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo
 	std::string errmsg = "";
 	std::string result_str = "";
 
-	//0-【查询id包括：账户本身、子账户/父账户】
+	//限制用户【查询id包括：账户本身、子账户/父账户】
 	std::vector<int> vecbelongids;
 	if (digitalmysql::isrootuser_id(userid))
 	{
@@ -1847,10 +1850,35 @@ std::string getjson_humanhistoryinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo
 		vecbelongids.push_back(parentid);
 	}
 	vecbelongids.push_back(userid);//添加账户本身
+	if (!vecbelongids.empty())
+	{
+		std::string str_filtervalue = "";
+		for (size_t i = 0; i < vecbelongids.size(); i++)
+		{
+			std::string temp; char tempbuff[256] = { 0 };
+			snprintf(tempbuff, 256, "%d", vecbelongids[i]);
+			temp = tempbuff;
+			str_filtervalue += temp;
+
+			if (i == 9 || i == (vecbelongids.size() - 1))//最多枚举10个id
+				break;
+			str_filtervalue += ",";
+		}
+
+		digitalmysql::filterinfo filter_add;
+		filter_add.filtertype = digitalmysql::filter_in;
+		filter_add.filterfield = "sbt_doctask.belongid";
+		filter_add.filtervalue = str_filtervalue;
+		vecfilterinfo.push_back(filter_add);
+	}
 
 	//1-getlist
-	int total = 0; digitalmysql::VEC_TASKINFO vectaskhistory;
-	result = digitalmysql::gettaskhistoryinfo(vecfilterinfo, order_key, order_way, pagesize, pagenum, total, vectaskhistory, vecbelongids);
+	int total = 0;
+	if (!digitalmysql::gettasktotal_filter(vecfilterinfo, total))//数字人不可见[不计算稿件数量]
+		_debug_to(0, ("gettasktotal_filter: total=%d\n"), total);
+	
+	digitalmysql::VEC_TASKINFO vectaskhistory;
+	result = digitalmysql::gettaskhistory_filter(vecfilterinfo, order_key, order_way, pagesize, pagenum, vectaskhistory);
 	_debug_to(0, ("get taskhistory size=%d\n"), vectaskhistory.size());
 	if (!result)
 		errmsg = "get taskhistory from mysql failed";
@@ -1861,6 +1889,9 @@ std::string getjson_humanhistoryinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo
 	DigitalMan_Tasks result_object;
 	for (size_t i = 0; i < vectaskhistory.size(); i++)
 	{
+		if (!digitalmysql::isvisible_humanid(vectaskhistory[i].humanid,vecbelongids))//数字人不可见[不显示数字人]
+			continue;
+
 		DigitalMan_Task result_item;
 		result_item.TaskGroupID = vectaskhistory[i].groupid;
 		result_item.TaskID = vectaskhistory[i].taskid;
@@ -1873,6 +1904,7 @@ std::string getjson_humanhistoryinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo
 		result_item.TaskProgerss = vectaskhistory[i].taskprogress;
 		result_item.TaskSpeakSpeed = vectaskhistory[i].speakspeed;
 		result_item.TaskInputSsml = vectaskhistory[i].ssmltext;
+		result_item.TaskActionList = (vectaskhistory[i].actionlist.empty()) ? ("[]") : (vectaskhistory[i].actionlist);
 		result_item.TaskCreateTime = vectaskhistory[i].createtime;
 		result_item.TaskIsLastEdit = vectaskhistory[i].islastedit;
 		result_item.TaskHumanID = vectaskhistory[i].humanid;
@@ -1978,7 +2010,7 @@ std::string getjson_taskgroupinfo(std::string groupid)
 
 	//1-getlist
 	digitalmysql::VEC_TASKINFO vectaskgroup;
-	result = digitalmysql::gettaskgroupinfo(groupid, vectaskgroup);
+	result = digitalmysql::gettaskinfo_group(groupid, vectaskgroup);
 	_debug_to(0, ("get taskgroup size=%d\n"), vectaskgroup.size());
 	if (!result)
 		errmsg = "get taskgroup from mysql failed";
@@ -2001,6 +2033,7 @@ std::string getjson_taskgroupinfo(std::string groupid)
 		result_item.TaskProgerss = vectaskgroup[i].taskprogress;
 		result_item.TaskSpeakSpeed = vectaskgroup[i].speakspeed;
 		result_item.TaskInputSsml = vectaskgroup[i].ssmltext;
+		result_item.TaskActionList = (vectaskgroup[i].actionlist.empty())?("[]"):(vectaskgroup[i].actionlist);
 		result_item.TaskCreateTime = vectaskgroup[i].createtime;
 		result_item.TaskIsLastEdit = vectaskgroup[i].islastedit;
 		result_item.TaskHumanID = vectaskgroup[i].humanid;
@@ -2351,10 +2384,10 @@ std::string getjson_tasklistinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo, in
 
 	//1-getlist
 	int total = 0; digitalmysql::VEC_TASKINFO vectasklist;
-	result = digitalmysql::gettasklistinfo(vecfilterinfo, pagesize, pagenum, total, vectasklist);
-	_debug_to(0, ("gettasklistinfo: vectasklist size=%d\n"), vectasklist.size());
+	result = digitalmysql::gettasklist_filter(vecfilterinfo, pagesize, pagenum, total, vectasklist);
+	_debug_to(0, ("gettasklist_filter: vectasklist size=%d\n"), vectasklist.size());
 	if (!result)
-		errmsg = "gettasklistinfo from mysql failed";
+		errmsg = "gettasklist_filter from mysql failed";
 
 	//2-parsedata
 	std::string other_info = "";
@@ -2430,85 +2463,32 @@ std::string getjson_tasklistinfo(digitalmysql::VEC_FILTERINFO& vecfilterinfo, in
 //ActorTaskinfo 结构体
 typedef struct _actortaskinfo
 {
-	int			ActorPriority;
-	long long   ActorCreateTime;
-	std::string ActorMessageID;
-	int			ActorTaskID;
-	int			ActorTaskType;
-	int			ActorMoodType;
-	double		ActorTaskSpeed;
-	std::string ActorTaskName;
-	std::string ActorTaskText;
-	std::string ActorTaskAudio;
-	std::string ActorTaskHumanID;
-	int			ActorTaskState;				//-1=waitmerge,0=merging,1=mergesuccess,2=mergefailed
-	int			ActorTaskSocket;			//与Actor通信的Socket[异步执行任务需要]
-	//指定模型文件
-	std::string SpeakModelPath;				//../0ModelFile/test/TTS/speak/snapshot_iter_1668699.pdz
-	std::string PWGModelPath;				//../0ModelFile/test/TTS/pwg/snapshot_iter_1000000.pdz
-	std::string MouthModelPath;				//../0ModelFile/test/W2L/file/xxx.pth
-	std::string FaceModelPath;				//../0ModelFile/test/W2L/file/shenzhen_v3_20230227.dfm
-
+	//此结构体只保存需动态加载到内存进行处理的数据
+	//从数据库可读取的数据根据ID/HUMANID实时读取即可
+	int			ActorTaskID;				//ID[标识]
+	std::string ActorMessageID;				//消息ID[标识]
+	int			ActorTaskState;				//任务状态[动态]，-1=waitmerge,0=merging,1=mergesuccess,2=mergefailed
+	int			ActorTaskSocket;			//通信SOCKET[动态]
+	
 	_actortaskinfo()
 	{
-		ActorPriority = 0;
-		ActorCreateTime = 0;
-		ActorMessageID = "";
 		ActorTaskID = 0;
-		ActorTaskType = 1;
-		ActorMoodType = 0;
-		ActorTaskSpeed = 1.0;
-		ActorTaskName = "";
-		ActorTaskText = "";
-		ActorTaskAudio = "";
-		ActorTaskHumanID = "";
+		ActorMessageID = "";
 		ActorTaskState = 0xFF;
-		ActorTaskSocket = -1;
-
-		SpeakModelPath = "";
-		PWGModelPath = "";
-		MouthModelPath = "";
-		FaceModelPath = "";
+		ActorTaskSocket = -1;		
 	}
 
 	void copydata(const _actortaskinfo& item)
 	{
-		ActorPriority = item.ActorPriority;
-		ActorCreateTime = item.ActorCreateTime;
-		ActorMessageID = item.ActorMessageID;
 		ActorTaskID = item.ActorTaskID;
-		ActorTaskType = item.ActorTaskType;
-		ActorMoodType = item.ActorMoodType;
-		ActorTaskSpeed = item.ActorTaskSpeed;
-		ActorTaskName = item.ActorTaskName;
-		ActorTaskText = item.ActorTaskText;
-		ActorTaskAudio = item.ActorTaskAudio;
-		ActorTaskHumanID = item.ActorTaskHumanID;
+		ActorMessageID = item.ActorMessageID;
 		ActorTaskState = item.ActorTaskState;
-		ActorTaskSocket = item.ActorTaskSocket;
-
-		SpeakModelPath = item.SpeakModelPath;
-		PWGModelPath = item.PWGModelPath;
-		MouthModelPath = item.MouthModelPath;
-		FaceModelPath = item.FaceModelPath;
+		ActorTaskSocket = item.ActorTaskSocket;	
 	}
-
 } actortaskinfo, *pactortaskinfo;
 typedef std::map<int, actortaskinfo> ACTORTASKINFO_MAP;
 ACTORTASKINFO_MAP Container_actortaskinfo;
 pthread_mutex_t mutex_actortaskinfo;// actortaskinfo互斥量
-
-//
-typedef std::pair<int, actortaskinfo> ACTORTASK_PAIR;
-typedef std::vector<ACTORTASK_PAIR> ACTORTASKINFO_VEC;
-static bool cmp_by_time(const ACTORTASK_PAIR& lhs, const ACTORTASK_PAIR& rhs)
-{
-	return (lhs.second.ActorCreateTime) < (rhs.second.ActorCreateTime);
-}
-static bool cmp_by_priority(const ACTORTASK_PAIR& lhs, const ACTORTASK_PAIR& rhs)
-{
-	return (lhs.second.ActorPriority) > (rhs.second.ActorPriority);
-}
 
 void delete_actortask(int taskid)
 {
@@ -2524,7 +2504,7 @@ void delete_actortask_invalid()
 {
 	pthread_mutex_lock(&mutex_actortaskinfo);
 	ACTORTASKINFO_MAP::iterator itDeleteTask = Container_actortaskinfo.begin();
-	for (itDeleteTask;itDeleteTask != Container_actortaskinfo.end(); ++itDeleteTask)
+    for (itDeleteTask;itDeleteTask != Container_actortaskinfo.end(); ++itDeleteTask)
 	{
 		if (!digitalmysql::isexisttask_taskid(itDeleteTask->first))
 			Container_actortaskinfo.erase(itDeleteTask);
@@ -2539,17 +2519,6 @@ void setstate_actortask(int taskid, int state)
 	{
 		if (itUpdateTask->second.ActorTaskState != state)
 			itUpdateTask->second.ActorTaskState = state;
-	}
-	pthread_mutex_unlock(&mutex_actortaskinfo);
-}
-void setpriority_actortask(int taskid, int priority)
-{
-	pthread_mutex_lock(&mutex_actortaskinfo);
-	ACTORTASKINFO_MAP::iterator itUpdateTask = Container_actortaskinfo.find(taskid);
-	if (itUpdateTask != Container_actortaskinfo.end())
-	{
-		if (itUpdateTask->second.ActorPriority != priority)
-			itUpdateTask->second.ActorPriority = priority;
 	}
 	pthread_mutex_unlock(&mutex_actortaskinfo);
 }
@@ -2568,38 +2537,23 @@ void setsocketfd_actortask(int taskid, int socketfd)
 //从数据库获取新任务
 bool getactortask_nextrun(actortaskinfo& actortaskitem)
 {
-	//设置任务扫描时间【锁定执行者】
-	std::string now_scannedtime = gettimetext_now();
-	if (!digitalmysql::setscannedtime_nextrun(now_scannedtime))
+	//设置任务扫描时间【时间+GUID锁定执行者】
+	std::string scandtime = gettimetext_now();
+	std::string scandkey = getguidtext();
+	std::string scannedtime_text = scandtime + std::string("_") + scandkey;//[时间+GUID] 支持HttpServer并发扫描
+	if (!digitalmysql::setscannedtime_nextrun(scannedtime_text))
 		return false;
 
 	//根据扫描时间获取任务进行执行
 	bool result = false;
 	digitalmysql::taskinfo next_taskitem;
-	if (digitalmysql::gettaskinfo_nextrun(now_scannedtime, next_taskitem) && next_taskitem.taskid != 0)
+	if (digitalmysql::gettaskinfo_nextrun(scannedtime_text, next_taskitem) && next_taskitem.taskid != 0)
 	{
-		actortaskitem.ActorPriority = next_taskitem.priority;
-		actortaskitem.ActorCreateTime = gettimecount_now();
-		actortaskitem.ActorMessageID = getguidtext();
 		actortaskitem.ActorTaskID = next_taskitem.taskid;
-		actortaskitem.ActorTaskType = next_taskitem.tasktype;
-		actortaskitem.ActorMoodType = next_taskitem.moodtype;
-		actortaskitem.ActorTaskSpeed = next_taskitem.speakspeed;
-		actortaskitem.ActorTaskName = next_taskitem.taskname;
-		actortaskitem.ActorTaskText = next_taskitem.ssmltext;
-		actortaskitem.ActorTaskAudio = next_taskitem.audio_path;
-		actortaskitem.ActorTaskHumanID = next_taskitem.humanid;
+		actortaskitem.ActorMessageID = getguidtext();
 		actortaskitem.ActorTaskState = 0xFF;
-
-		digitalmysql::humaninfo now_humanItem;
-		if (digitalmysql::gethumaninfo(next_taskitem.humanid, now_humanItem))
-		{
-			actortaskitem.SpeakModelPath = now_humanItem.speakmodelpath;
-			actortaskitem.PWGModelPath = now_humanItem.pwgmodelpath;
-			actortaskitem.MouthModelPath = now_humanItem.mouthmodelfile;
-			actortaskitem.FaceModelPath = now_humanItem.facemodelfile;
-			result = true;
-		}
+		actortaskitem.ActorTaskSocket = -1;
+		result = true;
 	}
 
 	return result;
@@ -2641,35 +2595,21 @@ std::string getNotifyMsg_ToActor(digitalmysql::taskinfo taskitem, digitalmysql::
 	double send_bottom = taskitem.front_bottom;
 	std::string send_imagematting = taskhumanitem.imagematting; 
 
-	int send_taskid = actortaskitem.ActorTaskID;
-	int send_tasktype = actortaskitem.ActorTaskType;
-	int send_moodtype = actortaskitem.ActorMoodType;
-	double send_speakspeed = actortaskitem.ActorTaskSpeed;
-	std::string send_tasktext = delay_beforetext + actortaskitem.ActorTaskText + delay_aftertext; 
-	std::string send_taskaudio = actortaskitem.ActorTaskAudio;
+	int send_taskid = taskitem.taskid;
+	int send_tasktype = taskitem.tasktype;
+	int send_moodtype = taskitem.moodtype;
+	double send_speakspeed = taskitem.speakspeed;
+	std::string send_tasktext = delay_beforetext + taskitem.ssmltext + delay_aftertext;
+	std::string send_taskactions = (taskitem.actionlist.empty()) ? ("[]") : (taskitem.actionlist);;//动作列表
+	std::string send_taskaudio = taskitem.audio_path;
 	std::string send_taskvideo = "";//保留位置,用于生成服务添加原始视频
 	int send_taskupload = (aws_enable) ? (1) : (0);//用于判断是否需要上传成品文件到云盘
 
-	//动作列表
-	std::string send_actionidlist = "";
-	std::vector<int> actionidlist;
-	for (size_t i = 0; i < actionidlist.size(); i++)
-	{
-		std::string actioniditem; 
-		char actioniditem_buff[1024] = { 0 };
-		snprintf(actioniditem_buff, 1024, "{\"actionid\":%d}", actionidlist[i]);
-		actioniditem = actioniditem_buff;
-
-		send_actionidlist += actioniditem;
-		if (i != actionidlist.size() - 1)
-			send_actionidlist += ",";
-	}
-
-	std::string send_humanid = actortaskitem.ActorTaskHumanID;
-	std::string send_speakmodel = actortaskitem.SpeakModelPath;
-	std::string send_pwgmodel = actortaskitem.PWGModelPath;
-	std::string send_mouthmodel = actortaskitem.MouthModelPath;
-	std::string seng_facemodel = actortaskitem.FaceModelPath;
+	std::string send_humanid = taskhumanitem.humanid;
+	std::string send_speakmodel = taskhumanitem.speakmodelpath;
+	std::string send_pwgmodel = taskhumanitem.pwgmodelpath;
+	std::string send_mouthmodel = taskhumanitem.mouthmodelfile;
+	std::string seng_facemodel = taskhumanitem.facemodelfile;
 
 	std::string send_background = taskitem.background;
 	std::string send_backaudio = taskitem.backaudio;
@@ -2701,14 +2641,14 @@ std::string getNotifyMsg_ToActor(digitalmysql::taskinfo taskitem, digitalmysql::
 	char msg_buff[BUFF_SZ] = { 0 };
 	snprintf(msg_buff, BUFF_SZ,
 		"{\"ddrinfo\":[{\"offset\":0,\"length\":0,\"pos\":{\"left\":%.6f,\"top\":%.6f,\"right\":%.6f,\"bottom\":%.6f},\"matte\":\"%s\"}],\
-		\"makevideo\":{\"taskid\":%d,\"humanid\":\"%s\",\"tasktype\":%d,\"moodtype\":%d,\"speakspeed\":%.2f,\"tasktext\":\"%s\",\"taskaudio\":\"%s\",\"taskvideo\":\"%s\", \"taskupload\":%d,\"actionidlist\":[%s],\
+		\"makevideo\":{\"taskid\":%d,\"humanid\":\"%s\",\"tasktype\":%d,\"moodtype\":%d,\"speakspeed\":%.2f,\"tasktext\":\"%s\",\"taskactions\":%s,\"taskaudio\":\"%s\",\"taskvideo\":\"%s\", \"taskupload\":%d,\
 		\"speakmodel\":\"%s\",\"pwgmodel\":\"%s\",\"mouthmodel\":\"%s\",\"facemodel\":\"%s\"},\
 		\"background\":\"%s\",\
 		\"backaudio\":{\"path\":\"%s\",\"volume\":%.6f,\"loop\":%d,\"start\":%d,\"end\":%d},\
 		\"window\":{\"width\":%d,\"height\":%d},\
 		\"msgid\":\"%s\"}",
 		send_left, send_top, send_right, send_bottom, send_imagematting.c_str(),
-		send_taskid, send_humanid.c_str(), send_tasktype, send_moodtype, send_speakspeed, send_tasktext.c_str(), send_taskaudio.c_str(),send_taskvideo.c_str(), send_taskupload, send_actionidlist.c_str(),
+		send_taskid, send_humanid.c_str(), send_tasktype, send_moodtype, send_speakspeed, send_tasktext.c_str(), send_taskactions.c_str(), send_taskaudio.c_str(),send_taskvideo.c_str(), send_taskupload,
 		send_speakmodel.c_str(), send_pwgmodel.c_str(), send_mouthmodel.c_str(), seng_facemodel.c_str(),
 		send_background.c_str(), 
 		send_backaudio.c_str(), send_backvolume, send_backloop, send_backstart, send_backend, 
@@ -2798,8 +2738,6 @@ bool dispose_recvmsg_now(std::string recv_message, digitalmysql::taskinfo taskit
 				{
 					std::string greenpath_ansi = recv_obj["greenpath"].ToString();
 					greenpath_ansi = str_replace(greenpath_ansi, std::string("\\"), std::string("\\\\"));		//兼容共享路径
-					if (is_existfile(greenpath_ansi.c_str()))
-						remove(greenpath_ansi.c_str());//删除本地文件
 				}
 				digitalmysql::setmergestate(taskid, 1);		 //任务状态为成功
 				digitalmysql::setmergeprogress(taskid, 100); //合成进度为100
@@ -2823,8 +2761,8 @@ bool dispose_recvmsg_now(std::string recv_message, digitalmysql::taskinfo taskit
 		{
 			std::string data = ""; std::string keyvalue = "";
 			char buff[BUFF_SZ] = { 0 };
-			snprintf(buff, BUFF_SZ, "\"TaskGroupID\":\"%s\",\"TaskID\":%d,\"TaskName\":\"%s\",\"CreateTime\":\"%s\",", taskitem.groupid.c_str(), taskitem.taskid, taskitem.taskname.c_str(), taskitem.createtime.c_str()); keyvalue = keyvalue;
-			data += buff;
+            snprintf(buff, BUFF_SZ, "\"TaskGroupID\":\"%s\",\"TaskID\":%d,\"TaskName\":\"%s\",\"CreateTime\":\"%s\",", taskitem.groupid.c_str(), taskitem.taskid, taskitem.taskname.c_str(), taskitem.createtime.c_str()); keyvalue = buff;
+			data += keyvalue;
 
 			std::string audio_duration = gettimetext_millisecond(taskitem.audio_length);
 			snprintf(buff, BUFF_SZ, "\"Audio\":{\"AudioFormat\":\"%s\",\"AudioFile\":\"%s\",\"Duration\":\"%s\"},", taskitem.audio_format.c_str(), taskitem.audio_path.c_str(), audio_duration.c_str()); keyvalue = buff;
@@ -3062,8 +3000,6 @@ bool dispose_recvmsg_recv(std::string recv_message, int taskid)
 				{
 					std::string greenpath_ansi = recv_obj["greenpath"].ToString();
 					greenpath_ansi = str_replace(greenpath_ansi, std::string("\\"), std::string("\\\\"));		//兼容共享路径
-					if (is_existfile(greenpath_ansi.c_str()))
-						remove(greenpath_ansi.c_str());//删除本地文件
 				}
 				digitalmysql::setmergestate(taskid, 1);		 //任务状态为成功
 				digitalmysql::setmergeprogress(taskid, 100); //合成进度为100
@@ -3253,7 +3189,7 @@ void* pthread_sendtask_thread(void* arg)
 								std::string htmlnotifymsg = getNotifyMsg_ToHtml(find_actortaskitem.ActorTaskID);
 								bool notifyresult = sendRabbitmqMsg(htmlnotifymsg);
 								std::string msgresult = (notifyresult) ? ("success") : ("failed");
-								_debug_to(0, ("[recving...]: Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
+								_debug_to(0, ("[sending...]: Send HTML Notify[%s]: %s\n"), msgresult.c_str(), htmlnotifymsg.c_str());
 
 								//开启循环监听消息返回线程【因合成Actor数量较少，不用考虑监听线程过多的问题】
 								pthread_t threadid_recvtask_thread;
@@ -3306,7 +3242,7 @@ void* pthread_sendtask_thread(void* arg)
 				digitalmysql::clearscannedtime_id(find_actortaskitem.ActorTaskID);//任务可再被扫描【重要】
 		}
 
-		sleep(1000);
+		sleep(1000);//1秒
 		//pthread_exit(nullptr);//中途退出当前线程
 	}
 
@@ -3330,7 +3266,7 @@ void* pthread_sethumanremain_thread(void* arg)
 			{
 				last_monthday = str_monthday;
 				std::vector<int> vecHumanIndexs;
-				bool result = digitalmysql::gethumanid_all(vecHumanIndexs);//获取数字人ID而不是HumanID,HumanID可能重复
+				bool result = digitalmysql::gethumanlist_index(vecHumanIndexs);//获取数字人ID而不是HumanID,HumanID可能重复
 				if (result)
 				{
 					for (size_t i = 0; i < vecHumanIndexs.size(); i++)
@@ -3346,7 +3282,7 @@ void* pthread_sethumanremain_thread(void* arg)
 				}
 			}
 		}
-		sleep(3000*1000);//50分钟检测一下当前时间
+		sleep(3000*1000);//3000秒[检测当前时间]
 	}
 
 	_debug_to(0, ("pthread_sethumanremain_thread exit...\n"));
@@ -3384,7 +3320,27 @@ bool checkOptionsRequest(struct evhttp_request* req)
 }
 
 //解析Json参数
-void ParseBodyStr(json::Object json_obj, std::map<std::string, std::string>& mapStrParameter, std::map<std::string, int>& mapIntParameter, std::map<std::string, double>& mapDoubleParameter)
+typedef struct _JsonDataInfo
+{
+	std::map<std::string, int> mapIntParameter;
+	std::map<std::string, double> mapDoubleParameter;
+	std::map<std::string, std::string> mapStringParameter;
+	std::map<std::string, std::vector<int>> mapIntArrayParameter;
+	std::map<std::string, std::vector<double>> mapDoubleArrayParameter;
+	std::map<std::string, std::vector<std::string>> mapStringArrayParameter;
+
+	_JsonDataInfo()
+	{
+		mapIntParameter.clear();
+		mapDoubleParameter.clear();
+		mapStringParameter.clear();
+		mapIntArrayParameter.clear();
+		mapDoubleArrayParameter.clear();
+		mapStringArrayParameter.clear();
+	}
+} JsonDataInfo, * pJsonDataInfo;
+
+void ParseBodyStr(json::Object json_obj, JsonDataInfo& stJsonData)
 {
 	json::Object::ValueMap::iterator it = json_obj.begin();
 	for (it; it != json_obj.end(); ++it)
@@ -3393,22 +3349,22 @@ void ParseBodyStr(json::Object json_obj, std::map<std::string, std::string>& map
 		if (it->second.GetType() == json::StringVal)
 		{
 			std::string value = it->second.ToString();
-			mapStrParameter[key] = value;
+			stJsonData.mapStringParameter[key] = value;
 		}
 		if (it->second.GetType() == json::IntVal)
 		{
 			int value = it->second.ToInt();
-			mapIntParameter[key] = value;
+			stJsonData.mapIntParameter[key] = value;
 		}
 		if (it->second.GetType() == json::DoubleVal)
 		{
 			double value = it->second.ToDouble();
-			mapDoubleParameter[key] = value;
+			stJsonData.mapDoubleParameter[key] = value;
 		}
 		if (it->second.GetType() == json::ObjectVal)
 		{
 			json::Object json_subobj = it->second.ToObject();
-			ParseBodyStr(json_subobj, mapStrParameter, mapIntParameter, mapDoubleParameter);
+			ParseBodyStr(json_subobj, stJsonData);
 		}
 		if (it->second.GetType() == json::ArrayVal)
 		{
@@ -3418,7 +3374,26 @@ void ParseBodyStr(json::Object json_obj, std::map<std::string, std::string>& map
 				if (json_subarray[j].GetType() == json::ObjectVal)
 				{
 					json::Object json_subarray_obj = json_subarray[j].ToObject();
-					ParseBodyStr(json_subarray_obj, mapStrParameter, mapIntParameter, mapDoubleParameter);
+					ParseBodyStr(json_subarray_obj, stJsonData);
+				}
+
+				//IntArray
+				if (json_subarray[j].GetType() == json::IntVal)
+				{
+					int value = json_subarray[j].ToInt();
+					stJsonData.mapIntArrayParameter[key].push_back(value);
+				}
+				//DoubleArray
+				if (json_subarray[j].GetType() == json::DoubleVal)
+				{
+					double value = json_subarray[j].ToDouble();
+					stJsonData.mapDoubleArrayParameter[key].push_back(value);
+				}
+				//StringArray
+				if (json_subarray[j].GetType() == json::StringVal)
+				{
+					std::string value = json_subarray[j].ToString();
+					stJsonData.mapStringArrayParameter[key].push_back(value);
 				}
 			}
 		}
@@ -3560,7 +3535,6 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 	if (checkOptionsRequest(req)) return;
 	httpServer::httpThread* pServer = reinterpret_cast<httpServer::httpThread*>(arg);
 	if (pServer == nullptr) return;
-	int http_code = HTTP_OK;
 
 	//Authorization
 	std::string		   Authorization_token = "";
@@ -3676,7 +3650,6 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 		//解析路径中参数
 		size_t tempPos;
-		int overtime;
 		std::vector<std::string> queryVector;
 		globalSpliteString(queryStr, queryVector, ("&"));
 		std::map<std::string, std::string> queryMap;
@@ -3695,18 +3668,28 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 		}
 
 		//解析Body参数
-		std::map<std::string, std::string> mapBodyStrParameter;
+		JsonDataInfo req_BodyDataInfoItem;
 		std::map<std::string, int> mapBodyIntParameter;
 		std::map<std::string, double> mapBodyDoubleParameter;
+		std::map<std::string, std::string> mapBodyStringParameter;
+		std::map<std::string, std::vector<int>> mapBodyIntArrayParameter;
+		std::map<std::string, std::vector<double>> mapBodyDoubleArrayParameter;
+		std::map<std::string, std::vector<std::string>> mapBodyStringArrayParameter;
 		if (!bodyStr_ansi.empty())
 		{
 			json::Value body_val = json::Deserialize((char*)bodyStr_ansi.c_str());
 			if (body_val.GetType() == json::ObjectVal)
 			{
 				json::Object body_obj = body_val.ToObject();
-				ParseBodyStr(body_obj, mapBodyStrParameter, mapBodyIntParameter, mapBodyDoubleParameter);
+				ParseBodyStr(body_obj, req_BodyDataInfoItem);
 			}
 		}
+		mapBodyIntParameter = req_BodyDataInfoItem.mapIntParameter;
+		mapBodyDoubleParameter = req_BodyDataInfoItem.mapDoubleParameter;
+		mapBodyStringParameter = req_BodyDataInfoItem.mapStringParameter;
+		mapBodyIntArrayParameter = req_BodyDataInfoItem.mapIntArrayParameter;
+		mapBodyDoubleArrayParameter = req_BodyDataInfoItem.mapDoubleArrayParameter;
+		mapBodyStringArrayParameter = req_BodyDataInfoItem.mapStringArrayParameter;
 
 #if 1 //解析认证信息
 		if (str_existsubstr(pathStr, std::string("playout")) && !str_existsubstr(pathStr, std::string("Login")))//路径中含有playout且不含Login则需要验证token
@@ -3791,8 +3774,8 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				bool checkrequest = true; std::string errmsg = "success"; std::string data = "";
 
 				std::string userCode = "";
-				if (mapBodyStrParameter.find("userCode") != mapBodyStrParameter.end())
-					userCode = mapBodyStrParameter["userCode"];
+				if (mapBodyStringParameter.find("userCode") != mapBodyStringParameter.end())
+					userCode = mapBodyStringParameter["userCode"];
 				CHECK_REQUEST_STR("userCode", userCode, errmsg, checkrequest);
 
 				if (checkrequest)
@@ -3815,8 +3798,8 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				bool checkrequest = true; std::string errmsg = "success"; std::string data = "";
 
 				std::string userCode = "";
-				if (mapBodyStrParameter.find("userCode") != mapBodyStrParameter.end())
-					userCode = mapBodyStrParameter["userCode"];
+				if (mapBodyStringParameter.find("userCode") != mapBodyStringParameter.end())
+					userCode = mapBodyStringParameter["userCode"];
 				CHECK_REQUEST_STR("userCode", userCode, errmsg, checkrequest);
 
 				if (checkrequest)
@@ -3926,14 +3909,23 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				//凌云-退出回调接口
 				bool checkrequest = true; std::string errmsg = "success"; std::string data = "";
 
-				std::string sobeycloud_user = "";
 				const char* user_value = evhttp_find_header(req->input_headers, "sobeycloud-user");
-				if (user_value)
-					sobeycloud_user = user_value;
-				std::string clear_sessionid = md5::getStringMD5(sobeycloud_user);//md5加密usercode得到sessionid
-				clearsessioninfo(clear_sessionid);//清除对应的会话
+                if (!user_value) checkrequest = false;
 
-				reply_item.content_string = getjson_error(0, errmsg);
+                if (checkrequest)
+                {
+                    std::string sobeycloud_user = "";
+                    sobeycloud_user = user_value;
+                    std::string clear_sessionid = md5::getStringMD5(sobeycloud_user);//md5加密usercode得到sessionid
+                    clearsessioninfo(clear_sessionid);//清除对应的会话
+                    reply_item.content_string = getjson_error(0, errmsg);
+                }
+                else
+                {
+                    errmsg = "not found sobeycloud-user at requset header...";
+                    reply_item.content_string = getjson_error(1, errmsg);
+                    debug_ret = false;
+                }
 			}
 		}
 		
@@ -3955,19 +3947,17 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					LoginType = mapBodyIntParameter["LoginType"];
 				CHECK_REQUEST_NUM("LoginType", LoginType, errmsg, checkrequest);
 
-
-				int			UserId = -1;
 				std::string UserName = "";
 				std::string PassWord = "";
 				std::string Refresh_Token = "";
 				if (LoginType == 0)//本地登录
 				{
-					if (mapBodyStrParameter.find("UserName") != mapBodyStrParameter.end())
-						UserName = mapBodyStrParameter["UserName"];
+					if (mapBodyStringParameter.find("UserName") != mapBodyStringParameter.end())
+						UserName = mapBodyStringParameter["UserName"];
 					CHECK_REQUEST_STR("UserName", UserName, errmsg, checkrequest);
 
-					if (mapBodyStrParameter.find("PassWord") != mapBodyStrParameter.end())
-						PassWord = mapBodyStrParameter["PassWord"];
+					if (mapBodyStringParameter.find("PassWord") != mapBodyStringParameter.end())
+						PassWord = mapBodyStringParameter["PassWord"];
 					CHECK_REQUEST_STR("PassWord", PassWord, errmsg, checkrequest);
 
 					//2
@@ -4047,8 +4037,8 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 				//1
 				std::string HumanID = "";
-				if (mapBodyStrParameter.find("HumanID") != mapBodyStrParameter.end())
-					HumanID = mapBodyStrParameter["HumanID"];
+				if (mapBodyStringParameter.find("HumanID") != mapBodyStringParameter.end())
+					HumanID = mapBodyStringParameter["HumanID"];
 
 				//2
 				if (checkrequest)
@@ -4069,14 +4059,65 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 				//1
 				std::string HumanID = "";
-				if (mapBodyStrParameter.find("HumanID") != mapBodyStrParameter.end())
-					HumanID = mapBodyStrParameter["HumanID"];
+				if (mapBodyStringParameter.find("HumanID") != mapBodyStringParameter.end())
+					HumanID = mapBodyStringParameter["HumanID"];
 				CHECK_REQUEST_STR("HumanID", HumanID, errmsg, checkrequest);
 
 				//2
 				if (checkrequest)
 				{
 					reply_item.content_string = getjson_actionlistinfo(HumanID);
+				}
+				else
+				{
+					reply_item.content_string = getjson_error(1, errmsg);
+					debug_ret = false;
+				}
+			}
+			else if (pathStr.compare(("/v1/videomaker/playout/UpdateAction")) == 0)
+			{
+				debug_str = "{/v1/videomaker/playout/UpdateAction}";
+				//获取动作列表接口
+				bool checkrequest = true; std::string errmsg = "success"; std::string data = "";
+
+				//1
+				std::string HumanID = "";
+				if (mapBodyStringParameter.find("HumanID") != mapBodyStringParameter.end())
+					HumanID = mapBodyStringParameter["HumanID"];
+				CHECK_REQUEST_STR("HumanID", HumanID, errmsg, checkrequest);
+				int ActionID = 0;
+				if (mapBodyIntParameter.find("ActionID") != mapBodyIntParameter.end())
+					ActionID = mapBodyIntParameter["ActionID"];
+				CHECK_REQUEST_NUM("ActionID", ActionID, errmsg, checkrequest);
+				std::string ActionName = "";
+				if (mapBodyStringParameter.find("ActionName") != mapBodyStringParameter.end())
+					ActionName = mapBodyStringParameter["ActionName"];
+				CHECK_REQUEST_STR("ActionName", ActionName, errmsg, checkrequest);
+
+				//2
+				if (checkrequest)
+				{
+					digitalmysql::humanactioninfo humanactionitem_update;
+					if (digitalmysql::isexisthumanaction_id(ActionID) && digitalmysql::gethumanaction(HumanID, ActionID, humanactionitem_update))
+					{
+						humanactionitem_update.actionname = ActionName;
+						if (digitalmysql::addhumanaction(humanactionitem_update, true))
+						{
+							reply_item.content_string = getjson_error(0, errmsg);
+						}
+						else
+						{
+							errmsg = "update actionname to mysql failed...";
+							reply_item.content_string = getjson_error(1, errmsg);
+							debug_ret = false;
+						}
+					}
+					else
+					{
+						errmsg = "not found exist humanaction";
+						reply_item.content_string = getjson_error(1, errmsg);
+						debug_ret = false;
+					}
 				}
 				else
 				{
@@ -4113,21 +4154,25 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				//1
 				digitalmysql::VEC_FILTERINFO vecfilterinfo;
 				std::string Field1 = "", Value1 = "";
-				if (mapBodyStrParameter.find("Field1") != mapBodyStrParameter.end())
-					Field1 = mapBodyStrParameter["Field1"];
-				if (mapBodyStrParameter.find("Value1") != mapBodyStrParameter.end())
-					Value1 = mapBodyStrParameter["Value1"];
+				if (mapBodyStringParameter.find("Field1") != mapBodyStringParameter.end())
+					Field1 = mapBodyStringParameter["Field1"];
+				if (mapBodyStringParameter.find("Value1") != mapBodyStringParameter.end())
+					Value1 = mapBodyStringParameter["Value1"];
 				digitalmysql::filterinfo filteritem1;
-				filteritem1.filterfield = Field1; filteritem1.filtervalue = Value1;
+				filteritem1.filtertype = digitalmysql::filter_like;
+				filteritem1.filterfield = Field1; 
+				filteritem1.filtervalue = Value1;
 				vecfilterinfo.push_back(filteritem1);
 
 				std::string Field2 = "", Value2 = "";
-				if (mapBodyStrParameter.find("Field2") != mapBodyStrParameter.end())
-					Field2 = mapBodyStrParameter["Field2"];
-				if (mapBodyStrParameter.find("Value2") != mapBodyStrParameter.end())
-					Value2 = mapBodyStrParameter["Value2"];
+				if (mapBodyStringParameter.find("Field2") != mapBodyStringParameter.end())
+					Field2 = mapBodyStringParameter["Field2"];
+				if (mapBodyStringParameter.find("Value2") != mapBodyStringParameter.end())
+					Value2 = mapBodyStringParameter["Value2"];
 				digitalmysql::filterinfo filteritem2;
-				filteritem2.filterfield = Field2; filteritem2.filtervalue = Value2;
+				filteritem2.filtertype = digitalmysql::filter_like;
+				filteritem2.filterfield = Field2; 
+				filteritem2.filtervalue = Value2;
 				vecfilterinfo.push_back(filteritem2);
 
 				int PageSize = 10, PageNum = 1;
@@ -4137,8 +4182,8 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					PageNum = mapBodyIntParameter["PageNum"];
 
 				std::string SortField = "createtime"; int SortValue = 1;
-				if (mapBodyStrParameter.find("SortField") != mapBodyStrParameter.end())
-					SortField = mapBodyStrParameter["SortField"];
+				if (mapBodyStringParameter.find("SortField") != mapBodyStringParameter.end())
+					SortField = mapBodyStringParameter["SortField"];
 				if (mapBodyIntParameter.find("SortValue") != mapBodyIntParameter.end())
 					SortValue = mapBodyIntParameter["SortValue"];
 
@@ -4161,8 +4206,8 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 				//1
 				std::string TaskGroupID = "";
-				if (mapBodyStrParameter.find("TaskGroupID") != mapBodyStrParameter.end())
-					TaskGroupID = mapBodyStrParameter["TaskGroupID"];
+				if (mapBodyStringParameter.find("TaskGroupID") != mapBodyStringParameter.end())
+					TaskGroupID = mapBodyStringParameter["TaskGroupID"];
 				CHECK_REQUEST_STR("TaskGroupID", TaskGroupID, errmsg, checkrequest);
 
 				if (checkrequest)
@@ -4183,11 +4228,11 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 				//1
 				std::string HumanID = "", HumanLabel = "";
-				if (mapBodyStrParameter.find("HumanID") != mapBodyStrParameter.end())
-					HumanID = mapBodyStrParameter["HumanID"];
+				if (mapBodyStringParameter.find("HumanID") != mapBodyStringParameter.end())
+					HumanID = mapBodyStringParameter["HumanID"];
 				CHECK_REQUEST_STR("HumanID", HumanID, errmsg, checkrequest);
-				if (mapBodyStrParameter.find("HumanLabel") != mapBodyStrParameter.end())
-					HumanLabel = mapBodyStrParameter["HumanLabel"];
+				if (mapBodyStringParameter.find("HumanLabel") != mapBodyStringParameter.end())
+					HumanLabel = mapBodyStringParameter["HumanLabel"];
 
 				//2
 				if (checkrequest)
@@ -4217,43 +4262,54 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 				//1=以下参数同VideoMake
 				std::string TaskName = "";
-				if (mapBodyStrParameter.find("TaskName") != mapBodyStrParameter.end())
-					TaskName = mapBodyStrParameter["TaskName"];
+				if (mapBodyStringParameter.find("TaskName") != mapBodyStringParameter.end())
+					TaskName = mapBodyStringParameter["TaskName"];
 				CHECK_REQUEST_STR("TaskName", TaskName, errmsg, checkrequest);
 				std::string HumanID = "";
-				if (mapBodyStrParameter.find("HumanID") != mapBodyStrParameter.end())
-					HumanID = mapBodyStrParameter["HumanID"];
+				if (mapBodyStringParameter.find("HumanID") != mapBodyStringParameter.end())
+					HumanID = mapBodyStringParameter["HumanID"];
 				CHECK_REQUEST_STR("HumanID", HumanID, errmsg, checkrequest);
 				std::string InputSsml = "";
-				if (mapBodyStrParameter.find("InputSsml") != mapBodyStrParameter.end())
-					InputSsml = mapBodyStrParameter["InputSsml"];
+				if (mapBodyStringParameter.find("InputSsml") != mapBodyStringParameter.end())
+					InputSsml = mapBodyStringParameter["InputSsml"];
+
+				std::string ActionList = "[]"; 
+				if (mapBodyIntArrayParameter.find("ActionList") != mapBodyIntArrayParameter.end())
+				{
+					std::string strActionIDs = "";
+					std::vector<int> vecActionList = mapBodyIntArrayParameter["ActionList"];
+					for (size_t i = 0; i < vecActionList.size(); i++)
+					{
+						strActionIDs += INT_TO_STR(vecActionList[i]);
+						if (i != vecActionList.size() - 1)
+							strActionIDs += std::string(",");
+					}
+					ActionList = std::string("[") + strActionIDs +std::string("]");
+				}
+
 				std::string InputAudio = "";
-				if (mapBodyStrParameter.find("InputAudio") != mapBodyStrParameter.end())
-					InputAudio = mapBodyStrParameter["InputAudio"];
+				if (mapBodyStringParameter.find("InputAudio") != mapBodyStringParameter.end())
+					InputAudio = mapBodyStringParameter["InputAudio"];
 				//
 				double Front_left = 0.0, Front_right = 1.0, Front_top = 0.0, Front_bottom = 1.0;
 				if (mapBodyDoubleParameter.find("left") != mapBodyDoubleParameter.end())
 					Front_left = mapBodyDoubleParameter["left"];
-				Front_left = (Front_left < 0.0) ? (0.0) : (Front_left);
 				if (mapBodyDoubleParameter.find("right") != mapBodyDoubleParameter.end())
 					Front_right = mapBodyDoubleParameter["right"];
-				Front_right = (Front_right < 0.0) ? (0.0) : (Front_right);
 				if (mapBodyDoubleParameter.find("top") != mapBodyDoubleParameter.end())
 					Front_top = mapBodyDoubleParameter["top"];
-				Front_top = (Front_top < 0.0) ? (0.0) : (Front_top);
 				if (mapBodyDoubleParameter.find("bottom") != mapBodyDoubleParameter.end())
 					Front_bottom = mapBodyDoubleParameter["bottom"];
-				Front_bottom = (Front_bottom < 0.0) ? (0.0) : (Front_bottom);
 				//
 				std::string Foreground = "", Background = "";
-				if (mapBodyStrParameter.find("Foreground") != mapBodyStrParameter.end())
-					Foreground = mapBodyStrParameter["Foreground"];
-				if (mapBodyStrParameter.find("Background") != mapBodyStrParameter.end())
-					Background = mapBodyStrParameter["Background"];
+				if (mapBodyStringParameter.find("Foreground") != mapBodyStringParameter.end())
+					Foreground = mapBodyStringParameter["Foreground"];
+				if (mapBodyStringParameter.find("Background") != mapBodyStringParameter.end())
+					Background = mapBodyStringParameter["Background"];
 				//
 				std::string BackAudio = "";
-				if (mapBodyStrParameter.find("BackAudio") != mapBodyStrParameter.end())
-					BackAudio = mapBodyStrParameter["BackAudio"];
+				if (mapBodyStringParameter.find("BackAudio") != mapBodyStringParameter.end())
+					BackAudio = mapBodyStringParameter["BackAudio"];
 				int BackAudio_volume = 0, BackAudio_loop = 1, BackAudio_start = 0, BackAudio_end = 65535;
 				if (mapBodyIntParameter.find("volume") != mapBodyIntParameter.end())
 					BackAudio_volume = mapBodyIntParameter["volume"];
@@ -4270,13 +4326,13 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					Window_Height = mapBodyIntParameter["WndHeight"];
 				//
 				std::string TaskGroupID = "", TaskVersionName = ""; int TaskVersion = 0;
-				if (mapBodyStrParameter.find("TaskGroupID") != mapBodyStrParameter.end())
-					TaskGroupID = mapBodyStrParameter["TaskGroupID"];
+				if (mapBodyStringParameter.find("TaskGroupID") != mapBodyStringParameter.end())
+					TaskGroupID = mapBodyStringParameter["TaskGroupID"];
 				TaskGroupID = (TaskGroupID.empty()) ? (getguidtext()) : (TaskGroupID);
 				if (mapBodyIntParameter.find("TaskVersion") != mapBodyIntParameter.end())
 					TaskVersion = mapBodyIntParameter["TaskVersion"];
-				if (mapBodyStrParameter.find("TaskVersionName") != mapBodyStrParameter.end())
-					TaskVersionName = mapBodyStrParameter["TaskVersionName"];
+				if (mapBodyStringParameter.find("TaskVersionName") != mapBodyStringParameter.end())
+					TaskVersionName = mapBodyStringParameter["TaskVersionName"];
 				TaskVersionName = (TaskVersionName.empty()) ? (gettimetext_now()) : (TaskVersionName);
 				int TaskID = 0; int TaskType = 1, Makesynch = 0, TaskMoodType = 0;
 				if (mapBodyIntParameter.find("TaskID") != mapBodyIntParameter.end())
@@ -4382,6 +4438,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					new_taskitem.humanid = HumanID;
 					new_taskitem.humanname = HumanName;
 					new_taskitem.ssmltext = InputSsml;
+					new_taskitem.actionlist = ActionList;
 					new_taskitem.audio_path = "";
 					new_taskitem.audio_format = "";
 					new_taskitem.audio_length = 0;
@@ -4434,43 +4491,54 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 				//1
 				std::string TaskName = "";
-				if (mapBodyStrParameter.find("TaskName") != mapBodyStrParameter.end())
-					TaskName = mapBodyStrParameter["TaskName"];
+				if (mapBodyStringParameter.find("TaskName") != mapBodyStringParameter.end())
+					TaskName = mapBodyStringParameter["TaskName"];
 				CHECK_REQUEST_STR("TaskName", TaskName, errmsg, checkrequest);
 				std::string HumanID = "";
-				if (mapBodyStrParameter.find("HumanID") != mapBodyStrParameter.end())
-					HumanID = mapBodyStrParameter["HumanID"];
+				if (mapBodyStringParameter.find("HumanID") != mapBodyStringParameter.end())
+					HumanID = mapBodyStringParameter["HumanID"];
 				CHECK_REQUEST_STR("HumanID", HumanID, errmsg, checkrequest);
 				std::string InputSsml = "";
-				if (mapBodyStrParameter.find("InputSsml") != mapBodyStrParameter.end())
-					InputSsml = mapBodyStrParameter["InputSsml"];
+				if (mapBodyStringParameter.find("InputSsml") != mapBodyStringParameter.end())
+					InputSsml = mapBodyStringParameter["InputSsml"];
+
+				std::string ActionList = "[]";
+				if (mapBodyIntArrayParameter.find("ActionList") != mapBodyIntArrayParameter.end())
+				{
+					std::string strActionIDs = "";
+					std::vector<int> vecActionList = mapBodyIntArrayParameter["ActionList"];
+					for (size_t i = 0; i < vecActionList.size(); i++)
+					{
+						strActionIDs += INT_TO_STR(vecActionList[i]);
+						if (i != vecActionList.size() - 1)
+							strActionIDs += std::string(",");
+					}
+					ActionList = std::string("[") + strActionIDs + std::string("]");
+				}
+
 				std::string InputAudio = "";
-				if (mapBodyStrParameter.find("InputAudio") != mapBodyStrParameter.end())
-					InputAudio = mapBodyStrParameter["InputAudio"];
+				if (mapBodyStringParameter.find("InputAudio") != mapBodyStringParameter.end())
+					InputAudio = mapBodyStringParameter["InputAudio"];
 				//
 				double Front_left = 0.0, Front_right = 1.0, Front_top = 0.0, Front_bottom = 1.0;
 				if (mapBodyDoubleParameter.find("left") != mapBodyDoubleParameter.end())
 					Front_left = mapBodyDoubleParameter["left"];
-				Front_left = (Front_left < 0.0) ? (0.0) : (Front_left);
 				if (mapBodyDoubleParameter.find("right") != mapBodyDoubleParameter.end())
 					Front_right = mapBodyDoubleParameter["right"];
-				Front_right = (Front_right < 0.0) ? (0.0) : (Front_right);
 				if (mapBodyDoubleParameter.find("top") != mapBodyDoubleParameter.end())
 					Front_top = mapBodyDoubleParameter["top"];
-				Front_top = (Front_top < 0.0) ? (0.0) : (Front_top);
 				if (mapBodyDoubleParameter.find("bottom") != mapBodyDoubleParameter.end())
 					Front_bottom = mapBodyDoubleParameter["bottom"];
-				Front_bottom = (Front_bottom < 0.0) ? (0.0) : (Front_bottom);
 				//
 				std::string Foreground = "", Background = "";
-				if (mapBodyStrParameter.find("Foreground") != mapBodyStrParameter.end())
-					Foreground = mapBodyStrParameter["Foreground"];
-				if (mapBodyStrParameter.find("Background") != mapBodyStrParameter.end())
-					Background = mapBodyStrParameter["Background"];
+				if (mapBodyStringParameter.find("Foreground") != mapBodyStringParameter.end())
+					Foreground = mapBodyStringParameter["Foreground"];
+				if (mapBodyStringParameter.find("Background") != mapBodyStringParameter.end())
+					Background = mapBodyStringParameter["Background"];
 				//
 				std::string BackAudio = "";
-				if (mapBodyStrParameter.find("BackAudio") != mapBodyStrParameter.end())
-					BackAudio = mapBodyStrParameter["BackAudio"];
+				if (mapBodyStringParameter.find("BackAudio") != mapBodyStringParameter.end())
+					BackAudio = mapBodyStringParameter["BackAudio"];
 				int BackAudio_volume = 0, BackAudio_loop = 1, BackAudio_start = 0, BackAudio_end = 65535;
 				if (mapBodyIntParameter.find("volume") != mapBodyIntParameter.end())
 					BackAudio_volume = mapBodyIntParameter["volume"];
@@ -4487,13 +4555,13 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					Window_Height = mapBodyIntParameter["WndHeight"];
 				//
 				std::string TaskGroupID = "", TaskVersionName = ""; int TaskVersion = 0;
-				if (mapBodyStrParameter.find("TaskGroupID") != mapBodyStrParameter.end())
-					TaskGroupID = mapBodyStrParameter["TaskGroupID"];
+				if (mapBodyStringParameter.find("TaskGroupID") != mapBodyStringParameter.end())
+					TaskGroupID = mapBodyStringParameter["TaskGroupID"];
 				TaskGroupID = (TaskGroupID.empty()) ? (getguidtext()) : (TaskGroupID);
 				if (mapBodyIntParameter.find("TaskVersion") != mapBodyIntParameter.end())
 					TaskVersion = mapBodyIntParameter["TaskVersion"];
-				if (mapBodyStrParameter.find("TaskVersionName") != mapBodyStrParameter.end())
-					TaskVersionName = mapBodyStrParameter["TaskVersionName"];
+				if (mapBodyStringParameter.find("TaskVersionName") != mapBodyStringParameter.end())
+					TaskVersionName = mapBodyStringParameter["TaskVersionName"];
 				TaskVersionName = (TaskVersionName.empty()) ? (gettimetext_now()) : (TaskVersionName);
 				int TaskID = 0; int TaskType = 1, Makesynch = 0, TaskMoodType = 0;
 				if (mapBodyIntParameter.find("TaskID") != mapBodyIntParameter.end())
@@ -4643,6 +4711,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					new_taskitem.humanid = HumanID;
 					new_taskitem.humanname = HumanName;
 					new_taskitem.ssmltext = InputSsml;
+					new_taskitem.actionlist = ActionList;
 					new_taskitem.audio_path = InputAudio;
 					new_taskitem.audio_format = "";
 					new_taskitem.audio_length = 0;
@@ -4679,22 +4748,10 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					if (digitalmysql::isexisttask_taskid(TaskID))
 					{
 						actortaskinfo new_actortaskitem;
-						new_actortaskitem.ActorPriority = 0;
-						new_actortaskitem.ActorCreateTime = gettimecount_now();
-						new_actortaskitem.ActorMessageID = getguidtext();
 						new_actortaskitem.ActorTaskID = TaskID;
-						new_actortaskitem.ActorTaskType = TaskType;
-						new_actortaskitem.ActorMoodType = TaskMoodType;
-						new_actortaskitem.ActorTaskSpeed = Speed;
-						new_actortaskitem.ActorTaskName = TaskName;
-						new_actortaskitem.ActorTaskText = InputSsml;
-						new_actortaskitem.ActorTaskAudio = InputAudio;
-						new_actortaskitem.ActorTaskHumanID = HumanID;
+						new_actortaskitem.ActorMessageID = getguidtext();
 						new_actortaskitem.ActorTaskState = 0xFF;
-						new_actortaskitem.SpeakModelPath = SpeakModelFullPath;
-						new_actortaskitem.PWGModelPath = PwgModelFullPath;
-						new_actortaskitem.MouthModelPath = MouthModelsPath;
-						new_actortaskitem.FaceModelPath = FaceModelsPath;
+						new_actortaskitem.ActorTaskSocket = -1;
 
 						char data_buff[BUFF_SZ] = { 0 };
 						snprintf(data_buff, BUFF_SZ, "\"TaskGroupID\":\"%s\",\"TaskID\":%d", TaskGroupID.c_str(), TaskID); data = data_buff;
@@ -4773,29 +4830,29 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				digitalmysql::VEC_FILTERINFO vecfilterinfo;
 				digitalmysql::filterinfo filteritem[256]; int filterIdx = 0;
 				std::string UserName = "", UserType = "", ServiceType="", ProjectName="", UserEmail="", UserPhone="";
-				if (mapBodyStrParameter.find("UserName") != mapBodyStrParameter.end())
-					UserName = mapBodyStrParameter["UserName"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "loginname", UserName); filterIdx++;
+				if (mapBodyStringParameter.find("UserName") != mapBodyStringParameter.end())
+					UserName = mapBodyStringParameter["UserName"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "loginname", UserName); filterIdx++;
 
-				if (mapBodyStrParameter.find("UserType") != mapBodyStrParameter.end())
-					UserType = mapBodyStrParameter["UserType"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "usertype", UserType); filterIdx++;
+				if (mapBodyStringParameter.find("UserType") != mapBodyStringParameter.end())
+					UserType = mapBodyStringParameter["UserType"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "usertype", UserType); filterIdx++;
 
-				if (mapBodyStrParameter.find("ServiceType") != mapBodyStrParameter.end())
-					ServiceType = mapBodyStrParameter["ServiceType"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "servicetype", ServiceType); filterIdx++;
+				if (mapBodyStringParameter.find("ServiceType") != mapBodyStringParameter.end())
+					ServiceType = mapBodyStringParameter["ServiceType"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "servicetype", ServiceType); filterIdx++;
 
-				if (mapBodyStrParameter.find("ProjectName") != mapBodyStrParameter.end())
-					ProjectName = mapBodyStrParameter["ProjectName"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "projectname", ProjectName); filterIdx++;
+				if (mapBodyStringParameter.find("ProjectName") != mapBodyStringParameter.end())
+					ProjectName = mapBodyStringParameter["ProjectName"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "projectname", ProjectName); filterIdx++;
 
-				if (mapBodyStrParameter.find("UserEmail") != mapBodyStrParameter.end())
-					UserEmail = mapBodyStrParameter["UserEmail"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "email", UserEmail); filterIdx++;
+				if (mapBodyStringParameter.find("UserEmail") != mapBodyStringParameter.end())
+					UserEmail = mapBodyStringParameter["UserEmail"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "email", UserEmail); filterIdx++;
 
-				if (mapBodyStrParameter.find("UserPhone") != mapBodyStrParameter.end())
-					UserPhone = mapBodyStrParameter["UserPhone"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "phone", UserPhone); filterIdx++;
+				if (mapBodyStringParameter.find("UserPhone") != mapBodyStringParameter.end())
+					UserPhone = mapBodyStringParameter["UserPhone"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "phone", UserPhone); filterIdx++;
 				//_debug_to(0, ("UserList: 1=%s 2=%s 3=%s 4=%s 5=%s 6=%s\n"), UserName.c_str(), UserType.c_str(), ServiceType.c_str(), ProjectName.c_str(), UserEmail.c_str(), UserPhone.c_str());
 
 				int PageSize = 10, PageNum = 1;
@@ -4824,11 +4881,11 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				//1
 				std::string UserName = "", UserPassWord = "";
 				int AdminFlag = -1, UserType = -1, ServiceType = -1;
-				if (mapBodyStrParameter.find("UserName") != mapBodyStrParameter.end())
-					UserName = mapBodyStrParameter["UserName"];
+				if (mapBodyStringParameter.find("UserName") != mapBodyStringParameter.end())
+					UserName = mapBodyStringParameter["UserName"];
 				CHECK_REQUEST_STR("UserName", UserName, errmsg, checkrequest);
-				if (mapBodyStrParameter.find("UserPassWord") != mapBodyStrParameter.end())
-					UserPassWord = mapBodyStrParameter["UserPassWord"];
+				if (mapBodyStringParameter.find("UserPassWord") != mapBodyStringParameter.end())
+					UserPassWord = mapBodyStringParameter["UserPassWord"];
 				CHECK_REQUEST_STR("UserPassWord", UserPassWord, errmsg, checkrequest);
 
 				if (mapBodyIntParameter.find("AdminFlag") != mapBodyIntParameter.end())
@@ -4842,13 +4899,13 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				CHECK_REQUEST_NUM("ServiceType", ServiceType, errmsg, checkrequest);
 
 				std::string ProjectName = "", UserEmail = "", UserPhone = "";
-				if (mapBodyStrParameter.find("ProjectName") != mapBodyStrParameter.end())
-					ProjectName = mapBodyStrParameter["ProjectName"];
+				if (mapBodyStringParameter.find("ProjectName") != mapBodyStringParameter.end())
+					ProjectName = mapBodyStringParameter["ProjectName"];
 				CHECK_REQUEST_STR("ProjectName", ProjectName, errmsg, checkrequest);
-				if (mapBodyStrParameter.find("UserEmail") != mapBodyStrParameter.end())
-					UserEmail = mapBodyStrParameter["UserEmail"];
-				if (mapBodyStrParameter.find("UserPhone") != mapBodyStrParameter.end())
-					UserPhone = mapBodyStrParameter["UserPhone"];
+				if (mapBodyStringParameter.find("UserEmail") != mapBodyStringParameter.end())
+					UserEmail = mapBodyStringParameter["UserEmail"];
+				if (mapBodyStringParameter.find("UserPhone") != mapBodyStringParameter.end())
+					UserPhone = mapBodyStringParameter["UserPhone"];
 
 				//2
 				if (checkrequest)
@@ -4900,8 +4957,8 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 
 				//1
 				std::string UserName = "";
-				if (mapBodyStrParameter.find("UserName") != mapBodyStrParameter.end())
-					UserName = mapBodyStrParameter["UserName"];
+				if (mapBodyStringParameter.find("UserName") != mapBodyStringParameter.end())
+					UserName = mapBodyStringParameter["UserName"];
 				CHECK_REQUEST_STR("UserName", UserName, errmsg, checkrequest);
 				int UserID = -1, AdminFlag = -1, UserType = -1, ServiceType = -1;
 				if (mapBodyIntParameter.find("UserID") != mapBodyIntParameter.end())
@@ -4918,13 +4975,13 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				CHECK_REQUEST_NUM("ServiceType", ServiceType, errmsg, checkrequest);
 
 				std::string ProjectName = "", UserEmail = "", UserPhone = "";
-				if (mapBodyStrParameter.find("ProjectName") != mapBodyStrParameter.end())
-					ProjectName = mapBodyStrParameter["ProjectName"];
+				if (mapBodyStringParameter.find("ProjectName") != mapBodyStringParameter.end())
+					ProjectName = mapBodyStringParameter["ProjectName"];
 				CHECK_REQUEST_STR("ProjectName", ProjectName, errmsg, checkrequest);
-				if (mapBodyStrParameter.find("UserEmail") != mapBodyStrParameter.end())
-					UserEmail = mapBodyStrParameter["UserEmail"];
-				if (mapBodyStrParameter.find("UserPhone") != mapBodyStrParameter.end())
-					UserPhone = mapBodyStrParameter["UserPhone"];
+				if (mapBodyStringParameter.find("UserEmail") != mapBodyStringParameter.end())
+					UserEmail = mapBodyStringParameter["UserEmail"];
+				if (mapBodyStringParameter.find("UserPhone") != mapBodyStringParameter.end())
+					UserPhone = mapBodyStringParameter["UserPhone"];
 
 				//2
 				if (checkrequest)
@@ -5040,38 +5097,37 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				digitalmysql::VEC_FILTERINFO vecfilterinfo;
 				digitalmysql::filterinfo filteritem[256]; int filterIdx = 0;
 				std::string CreateTimeStart = "0000-01-01 00:00:00", CreateTimeEnd = "9999-01-01 23:59:59";
-				if (mapBodyStrParameter.find("CreateTimeStart") != mapBodyStrParameter.end() && (!mapBodyStrParameter["CreateTimeStart"].empty()))
-					CreateTimeStart = mapBodyStrParameter["CreateTimeStart"]; 
-				if (mapBodyStrParameter.find("CreateTimeEnd") != mapBodyStrParameter.end() && (!mapBodyStrParameter["CreateTimeEnd"].empty()))
-					CreateTimeEnd = mapBodyStrParameter["CreateTimeEnd"];
+				if (mapBodyStringParameter.find("CreateTimeStart") != mapBodyStringParameter.end() && (!mapBodyStringParameter["CreateTimeStart"].empty()))
+					CreateTimeStart = mapBodyStringParameter["CreateTimeStart"]; 
+				if (mapBodyStringParameter.find("CreateTimeEnd") != mapBodyStringParameter.end() && (!mapBodyStringParameter["CreateTimeEnd"].empty()))
+					CreateTimeEnd = mapBodyStringParameter["CreateTimeEnd"];
 				if (!CreateTimeStart.empty() || !CreateTimeEnd.empty())
 				{
 					std::string CreateTimeValue = std::string("'") + CreateTimeStart + std::string("' and '") + CreateTimeEnd + std::string("'");
 
-					filteritem[filterIdx].filtertype = 1;
-					ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "createtime", CreateTimeValue); filterIdx++;
+					ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_between, "createtime", CreateTimeValue); filterIdx++;
 				}
 				
 				std::string RootName = "", ServiceType = "", OperationWay = "", IndentType = "", IndentContent = "";
-				if (mapBodyStrParameter.find("RootName") != mapBodyStrParameter.end())
-					RootName = mapBodyStrParameter["RootName"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "sbt_userinfo.loginname", RootName); filterIdx++;
+				if (mapBodyStringParameter.find("RootName") != mapBodyStringParameter.end())
+					RootName = mapBodyStringParameter["RootName"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "sbt_userinfo.loginname", RootName); filterIdx++;
 
-				if (mapBodyStrParameter.find("ServiceType") != mapBodyStrParameter.end())
-					ServiceType = mapBodyStrParameter["ServiceType"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "sbt_indentinfo.servicetype", ServiceType); filterIdx++;
+				if (mapBodyStringParameter.find("ServiceType") != mapBodyStringParameter.end())
+					ServiceType = mapBodyStringParameter["ServiceType"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "sbt_indentinfo.servicetype", ServiceType); filterIdx++;
 
-				if (mapBodyStrParameter.find("OperationWay") != mapBodyStrParameter.end())
-					OperationWay = mapBodyStrParameter["OperationWay"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "operationway", OperationWay); filterIdx++;
+				if (mapBodyStringParameter.find("OperationWay") != mapBodyStringParameter.end())
+					OperationWay = mapBodyStringParameter["OperationWay"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "operationway", OperationWay); filterIdx++;
 
-				if (mapBodyStrParameter.find("IndentType") != mapBodyStrParameter.end())
-					IndentType = mapBodyStrParameter["IndentType"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "indenttype", IndentType); filterIdx++;
+				if (mapBodyStringParameter.find("IndentType") != mapBodyStringParameter.end())
+					IndentType = mapBodyStringParameter["IndentType"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "indenttype", IndentType); filterIdx++;
 
-				if (mapBodyStrParameter.find("IndentContent") != mapBodyStrParameter.end())
-					IndentContent = mapBodyStrParameter["IndentContent"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "indentcontent", IndentContent); filterIdx++;
+				if (mapBodyStringParameter.find("IndentContent") != mapBodyStringParameter.end())
+					IndentContent = mapBodyStringParameter["IndentContent"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "indentcontent", IndentContent); filterIdx++;
 
 				//2
 				if (checkrequest)
@@ -5103,8 +5159,8 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				CHECK_REQUEST_NUM("IndentType", IndentType, errmsg, checkrequest);
 
 				std::string DeadlineTime = "";
-				if (mapBodyStrParameter.find("DeadlineTime") != mapBodyStrParameter.end())
-					DeadlineTime = mapBodyStrParameter["DeadlineTime"];
+				if (mapBodyStringParameter.find("DeadlineTime") != mapBodyStringParameter.end())
+					DeadlineTime = mapBodyStringParameter["DeadlineTime"];
 				CHECK_REQUEST_STR("DeadlineTime", DeadlineTime, errmsg, checkrequest);
 
 				//检查数据库用户有效性
@@ -5133,8 +5189,8 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					if (IndentType == 0)//新增数字人模型
 					{
 						std::string HumanName = "";
-						if (mapBodyStrParameter.find("HumanName") != mapBodyStrParameter.end())
-							HumanName = mapBodyStrParameter["HumanName"];
+						if (mapBodyStringParameter.find("HumanName") != mapBodyStringParameter.end())
+							HumanName = mapBodyStringParameter["HumanName"];
 						CHECK_REQUEST_STR("HumanName", HumanName, errmsg, checkrequest);
 						if (!checkrequest)
 						{
@@ -5157,6 +5213,7 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 							humanitem_add.contentid = "";
 							humanitem_add.sourcefolder = filefolder_humansource;
 							humanitem_add.available = 0;//不可用
+							humanitem_add.visible = 1;//可见
 							humanitem_add.speakspeed = 1.0;
 							humanitem_add.seriousspeed = 0.8;
 							humanitem_add.imagematting = "";
@@ -5198,11 +5255,11 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					if (IndentType == 1)//续费数字人模型
 					{
 						std::string HumanID = "", HumanName = "";
-						if (mapBodyStrParameter.find("HumanID") != mapBodyStrParameter.end())
-							HumanID = mapBodyStrParameter["HumanID"];
+						if (mapBodyStringParameter.find("HumanID") != mapBodyStringParameter.end())
+							HumanID = mapBodyStringParameter["HumanID"];
 						CHECK_REQUEST_STR("HumanID", HumanID, errmsg, checkrequest);
-						if (mapBodyStrParameter.find("HumanName") != mapBodyStrParameter.end())
-							HumanName = mapBodyStrParameter["HumanName"];
+						if (mapBodyStringParameter.find("HumanName") != mapBodyStringParameter.end())
+							HumanName = mapBodyStringParameter["HumanName"];
 						CHECK_REQUEST_STR("HumanName", HumanName, errmsg, checkrequest);
 						if (!checkrequest)
 						{
@@ -5287,8 +5344,8 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 					if (IndentType == 4)//加量时长包
 					{
 						std::string AppendTime = "";
-						if (mapBodyStrParameter.find("AppendTime") != mapBodyStrParameter.end())
-							AppendTime = mapBodyStrParameter["AppendTime"];
+						if (mapBodyStringParameter.find("AppendTime") != mapBodyStringParameter.end())
+							AppendTime = mapBodyStringParameter["AppendTime"];
 						CHECK_REQUEST_STR("AppendTime", AppendTime, errmsg, checkrequest);
 						if (!checkrequest)
 						{
@@ -5370,39 +5427,37 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				digitalmysql::VEC_FILTERINFO vecfilterinfo;
 				digitalmysql::filterinfo filteritem[256]; int filterIdx = 0;
 				std::string CreateTimeStart = "0000-01-01 00:00:00", CreateTimeEnd = "9999-01-01 23:59:59";
-				if (mapBodyStrParameter.find("CreateTimeStart") != mapBodyStrParameter.end() && (!mapBodyStrParameter["CreateTimeStart"].empty()))
-					CreateTimeStart = mapBodyStrParameter["CreateTimeStart"];
-				if (mapBodyStrParameter.find("CreateTimeEnd") != mapBodyStrParameter.end() && (!mapBodyStrParameter["CreateTimeEnd"].empty()))
-					CreateTimeEnd = mapBodyStrParameter["CreateTimeEnd"];
+				if (mapBodyStringParameter.find("CreateTimeStart") != mapBodyStringParameter.end() && (!mapBodyStringParameter["CreateTimeStart"].empty()))
+					CreateTimeStart = mapBodyStringParameter["CreateTimeStart"];
+				if (mapBodyStringParameter.find("CreateTimeEnd") != mapBodyStringParameter.end() && (!mapBodyStringParameter["CreateTimeEnd"].empty()))
+					CreateTimeEnd = mapBodyStringParameter["CreateTimeEnd"];
 				if (!CreateTimeStart.empty() || !CreateTimeEnd.empty())
 				{
 					std::string CreateTimeValue = std::string("'") + CreateTimeStart + std::string("' and '") + CreateTimeEnd + std::string("'");
 
-					filteritem[filterIdx].filtertype = 1;
-					ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "sbt_doctask.createtime", CreateTimeValue); filterIdx++;
+					ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_between, "sbt_doctask.createtime", CreateTimeValue); filterIdx++;
 				}
 
 				std::string FinishTimeStart = "0000-01-01 00:00:00", FinishTimeEnd = "9999-01-01 23:59:59";
-				if (mapBodyStrParameter.find("FinishTimeStart") != mapBodyStrParameter.end() && (!mapBodyStrParameter["FinishTimeStart"].empty()))
-					FinishTimeStart = mapBodyStrParameter["FinishTimeStart"];
-				if (mapBodyStrParameter.find("FinishTimeEnd") != mapBodyStrParameter.end() && (!mapBodyStrParameter["FinishTimeEnd"].empty()))
-					FinishTimeEnd = mapBodyStrParameter["FinishTimeEnd"];
+				if (mapBodyStringParameter.find("FinishTimeStart") != mapBodyStringParameter.end() && (!mapBodyStringParameter["FinishTimeStart"].empty()))
+					FinishTimeStart = mapBodyStringParameter["FinishTimeStart"];
+				if (mapBodyStringParameter.find("FinishTimeEnd") != mapBodyStringParameter.end() && (!mapBodyStringParameter["FinishTimeEnd"].empty()))
+					FinishTimeEnd = mapBodyStringParameter["FinishTimeEnd"];
 				if (!FinishTimeStart.empty() || !FinishTimeEnd.empty())
 				{
 					std::string FinishTimeValue = std::string("'") + FinishTimeStart + std::string("' and '") + FinishTimeEnd + std::string("'");
 
-					filteritem[filterIdx].filtertype = 1;
-					ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "sbt_doctask.finishtime", FinishTimeValue); filterIdx++;
+					ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_between, "sbt_doctask.finishtime", FinishTimeValue); filterIdx++;
 				}
 
 				std::string UserName = "", RootName = ""; 
-				if (mapBodyStrParameter.find("UserName") != mapBodyStrParameter.end())
-					UserName = mapBodyStrParameter["UserName"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "sbt_userinfo.loginname", UserName); filterIdx++;
+				if (mapBodyStringParameter.find("UserName") != mapBodyStringParameter.end())
+					UserName = mapBodyStringParameter["UserName"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "sbt_userinfo.loginname", UserName); filterIdx++;
 					
 				int rootid = 0; std::vector<int> vecbelongids;
-				if (mapBodyStrParameter.find("RootName") != mapBodyStrParameter.end())
-					RootName = mapBodyStrParameter["RootName"];
+				if (mapBodyStringParameter.find("RootName") != mapBodyStringParameter.end())
+					RootName = mapBodyStringParameter["RootName"];
 				if (!RootName.empty() && digitalmysql::getuserid_likename(RootName, rootid))
 				{
 					if (rootid != 0 && digitalmysql::getuserid_childs(rootid, vecbelongids))
@@ -5418,33 +5473,31 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 							belingid += std::string(",");
 						BelongIdValue += belingid;
 					}
-					filteritem[filterIdx].filtertype = 2;
-					ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "sbt_doctask.belongid", BelongIdValue); filterIdx++;
+					ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_in, "sbt_doctask.belongid", BelongIdValue); filterIdx++;
 				}
 
 				std::string TaskFileName = "";
-				if (mapBodyStrParameter.find("TaskFileName") != mapBodyStrParameter.end())
-					TaskFileName = mapBodyStrParameter["TaskFileName"];
+				if (mapBodyStringParameter.find("TaskFileName") != mapBodyStringParameter.end())
+					TaskFileName = mapBodyStringParameter["TaskFileName"];
 				if (!TaskFileName.empty())
 				{
 					char tempbuff[2048] = { 0 };
 					std::string CustomFilter = "";
 					snprintf(tempbuff, 2048, "audiofile like '%%%s%%' or videofile like '%%%s%%'", TaskFileName.c_str(), TaskFileName.c_str()); CustomFilter = tempbuff;
 
-					filteritem[filterIdx].filtertype = 3;
-					ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "Custom", CustomFilter); filterIdx++;
+					ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_condition, "Custom", CustomFilter); filterIdx++;
 				}
 
 				std::string HumanName = "", TaskName = "", TaskState = "";
-				if (mapBodyStrParameter.find("HumanName") != mapBodyStrParameter.end())
-					HumanName = mapBodyStrParameter["HumanName"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "sbt_doctask.humanname", HumanName); filterIdx++;
-				if (mapBodyStrParameter.find("TaskName") != mapBodyStrParameter.end())
-					TaskName = mapBodyStrParameter["TaskName"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "sbt_doctask.taskname", TaskName); filterIdx++;
-				if (mapBodyStrParameter.find("TaskState") != mapBodyStrParameter.end())
-					TaskState = mapBodyStrParameter["TaskState"];
-				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], "sbt_doctask.state", TaskState); filterIdx++;
+				if (mapBodyStringParameter.find("HumanName") != mapBodyStringParameter.end())
+					HumanName = mapBodyStringParameter["HumanName"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "sbt_doctask.humanname", HumanName); filterIdx++;
+				if (mapBodyStringParameter.find("TaskName") != mapBodyStringParameter.end())
+					TaskName = mapBodyStringParameter["TaskName"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "sbt_doctask.taskname", TaskName); filterIdx++;
+				if (mapBodyStringParameter.find("TaskState") != mapBodyStringParameter.end())
+					TaskState = mapBodyStringParameter["TaskState"];
+				ADD_FILTER_INFO(vecfilterinfo, filteritem[filterIdx], digitalmysql::filter_like, "sbt_doctask.state", TaskState); filterIdx++;
 				
 
 				//2
@@ -5479,7 +5532,6 @@ void global_http_generic_handler(struct evhttp_request* req, void* arg)
 				{
 					if (digitalmysql::isexisttask_taskid(TaskID) && digitalmysql::setpriority(TaskID, TaskPriority))
 					{
-						setpriority_actortask(TaskID, TaskPriority);
 						reply_item.content_string = getjson_error(0, errmsg);
 					}
 					else
@@ -5581,17 +5633,26 @@ void InitCMDWnd()
 	SetConsoleMode(hStdin, mode);
 
 	char cmd[64] = {0};
-	sprintf(cmd, "mode con cols=%d lines=%d", 160, 40);
+    sprintf_s(cmd, "mode con cols=%d lines=%d", 160, 40);
 	system(cmd);
 }
 
 int main()
 {
+	//创建互斥量
+	HANDLE hMutex = CreateMutex(NULL, TRUE, "Mutex_HttpServer");
+	if (GetLastError() == ERROR_ALREADY_EXISTS)
+	{
+		printf("The Application is Running...\n");
+		system("pause");
+		exit(0);
+	}
+
 	//设置异常处理函数
 	SetUnhandledExceptionFilter(ExceptionHandler);
 
 	//
-	InitCMDWnd();
+    InitCMDWnd();
 	std::string apppath = getexepath(); apppath = str_replace(apppath, std::string("\\"), std::string("/"));
 
 	bool loadconfig = true;
@@ -5698,11 +5759,12 @@ int main()
 
 start_wait:
 	//keep runing
+	sendRabbitmqMsg("HttpServer is runinng...");//发一次消息,建立rabbitmq消息通道
 	while (1)
 	{
 		char ch[256] = { 0 };
 		printf(("输入'Q'或‘q’退出程序:\n"));
-		gets_s(ch, 255);
+        gets_s(ch, 255);
 		std::string str; str = ch;
 		if (str.compare("Q") == 0 || str.compare("q") == 0)
 		{
@@ -5710,7 +5772,12 @@ start_wait:
 			server.stop_http_server();
 			break;
 		}
+        sleep(10);
 	}
+
+	//释放互斥量
+	ReleaseMutex(hMutex);
+	CloseHandle(hMutex);
 }
 
 

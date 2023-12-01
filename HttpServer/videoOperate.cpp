@@ -63,3 +63,36 @@ bool getimage_fromvideo(std::string videofilepath, std::string& imagefilepath, u
 
     return true;
 }
+
+bool getmp4_fromAvi(std::string aviFilePath, std::string& mp4FilePath)
+{
+    if (aviFilePath.empty() || mp4FilePath.empty())
+    {
+        _debug_to(loger_vdooperate, 0, ("[getmp4_fromAvi] input videopath/imagepath is empty...\n"));
+        return false;
+    }
+
+    // 打开AVI视频文件
+    cv::VideoCapture inputVideo(aviFilePath);
+    if (!inputVideo.isOpened()) 
+    {
+        _debug_to(loger_vdooperate, 0, ("[getmp4_fromAvi]Error opening video file...\n"));
+        return false;
+    }
+
+    // 创建MP4视频编码器
+    cv::VideoWriter outputVideo(mp4FilePath, cv::VideoWriter::fourcc('X', '2', '6', '4'), inputVideo.get(cv::CAP_PROP_FPS), cv::Size(inputVideo.get(cv::CAP_PROP_FRAME_WIDTH), inputVideo.get(cv::CAP_PROP_FRAME_HEIGHT)));
+
+    // 逐帧读取AVI视频并写入MP4视频
+    cv::Mat frame;
+    while (inputVideo.read(frame)) 
+    {
+        outputVideo.write(frame);
+    }
+
+    // 释放视频文件
+    inputVideo.release();
+    outputVideo.release();
+
+    return true;
+}

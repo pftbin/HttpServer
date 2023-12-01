@@ -77,6 +77,7 @@ public:
 		TaskProgerss = 0;
 		TaskSpeakSpeed = 1.0;
 		TaskInputSsml = "";
+		TaskActionList = "[]";
 		TaskCreateTime = "";
 		TaskHumanID = "";
 		TaskHumanName = "";
@@ -127,6 +128,7 @@ public:
 	int			TaskProgerss;
 	double		TaskSpeakSpeed;
 	std::string TaskInputSsml;
+	std::string TaskActionList;
 	std::string TaskCreateTime;
 	int			TaskIsLastEdit;
 	std::string TaskHumanID;
@@ -388,8 +390,8 @@ public:
 public:
 	int			ActionID;
 	std::string ActionName;
-	std::string ActionKeyframe;
 	std::string ActionVideo;
+	std::string ActionKeyframe;
 	int			ActionDuration;
 	int			VideoWidth;
 	int			VideoHeight;

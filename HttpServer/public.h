@@ -133,6 +133,24 @@ inline std::string url_decode(const std::string& encodedUrl)
     return decodedUrl.str();
 }
 
+inline int STR_TO_INT(std::string STR)
+{
+    return std::stoi(STR);
+}
+inline std::string INT_TO_STR(int INT)
+{
+    return std::to_string(INT);
+}
+
+inline double STR_TO_DOUBLE(std::string STR)
+{
+    return std::stod(STR);
+}
+inline std::string DOUBLE_TO_STR(double DOUBLE)
+{
+    return std::to_string(DOUBLE);
+}
+
 //
 std::string getexepath();
 bool create_directories(const char* path);
@@ -183,7 +201,7 @@ bool        gettimecount_interval(std::string timetext_start, std::string timete
 std::string gettime_custom();
 
 std::string gettimetext_millisecond(int millisecond);
-std::string gettimetext_framecount(int framecount, int fps);
+std::string gettimetext_framecount(int framecount, double dfps);
 
 std::string gettimeshow_second(long long second);
 std::string gettimeshow_day(long long second);

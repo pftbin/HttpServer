@@ -141,6 +141,8 @@ std::string DigitalMan_Task::writeJson()
 	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"InputSsml\":\"%s\",", TaskInputSsml.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"ActionList\": %s,", TaskActionList.c_str()); skeyvalue = buff;//IntArray
+	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"Createtime\":\"%s\",", TaskCreateTime.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"IsLastEdit\":%d,", TaskIsLastEdit); skeyvalue = buff;
@@ -462,9 +464,9 @@ std::string DigitalMan_ActionItem::writeJson()
 	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"ActionName\":\"%s\",", ActionName.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
-	snprintf(buff, BUFF_SZ, "\"ActionKeyframe\":\"%s\",", ActionKeyframe.c_str()); skeyvalue = buff;
-	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"ActionVideo\":\"%s\",", ActionVideo.c_str()); skeyvalue = buff;
+	sResultJson += skeyvalue;
+	snprintf(buff, BUFF_SZ, "\"ActionKeyframe\":\"%s\",", ActionKeyframe.c_str()); skeyvalue = buff;
 	sResultJson += skeyvalue;
 	snprintf(buff, BUFF_SZ, "\"ActionDuration\":%d,", ActionDuration); skeyvalue = buff;
 	sResultJson += skeyvalue;

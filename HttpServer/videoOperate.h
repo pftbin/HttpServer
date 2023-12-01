@@ -9,3 +9,5 @@ using namespace cv;
 using namespace std;
 
 bool getimage_fromvideo(std::string videofilepath, std::string& imagefilepath, unsigned int& videowidth, unsigned int& videoheight);
+
+bool getmp4_fromAvi(std::string aviFilePath, std::string& mp4FilePath);

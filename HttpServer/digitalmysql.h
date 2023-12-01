@@ -10,15 +10,23 @@ namespace digitalmysql
 {
 	bool getconfig_mysql(std::string configfilepath, std::string& error);
 
+	enum filter_type
+	{
+		filter_ignore = -1,
+		filter_like = 0,
+		filter_between,
+		filter_in,
+		filter_condition,
+	};
 	typedef struct _filterinfo
 	{
-		int			filtertype;//0=like, 1=between+and, 2=in, 3=无属性名的完整条件
+		int			filtertype;// -1=ignore ,0=like, 1=between+and, 2=in, 3=无属性名的完整条件
 		std::string filterfield;
 		std::string filtervalue;
 
 		_filterinfo()
 		{
-			filtertype = 0;
+			filtertype = filter_ignore;
 			filterfield = "";
 			filtervalue = "";
 		}
@@ -84,6 +92,7 @@ namespace digitalmysql
 			ansi_to_utf8(deadlineTime.c_str(), deadlineTime.length(), deadlineTime);
 		}
 	}userinfo;
+	typedef std::vector<userinfo> VEC_USERINFO;
 	bool adduserinfo(userinfo useritem, bool update = false);
 	bool getuserinfo(int userid, userinfo& useritem);
 	bool getuserinfo(std::string name, std::string password, userinfo& useritem);
@@ -104,7 +113,6 @@ namespace digitalmysql
 	bool getuserinfo_remaintime(std::string usercode, long long& remaintime);
 	bool setuserinfo_remaintime(std::string usercode, long long remaintime);
 
-	typedef std::vector<userinfo> VEC_USERINFO;
 	bool getuserid_allroot(std::vector<int>& vecbelongids);
 	bool getuserlistinfo(VEC_FILTERINFO& vecfilterinfo, int pagesize, int pagenum, int& total, VEC_USERINFO& vecuserinfo);
 	bool deleteuserinfo_id(int userid, std::string& errmsg);
@@ -155,7 +163,8 @@ namespace digitalmysql
 		std::string humanname;
 		std::string contentid;		//人物标签
 		std::string sourcefolder;
-		int			available;
+		int			available;		//激活状态
+		int			visible;		//前端是否可见,不可见则相关任务也不可见
 		double		speakspeed;
 		double		seriousspeed;
 		std::string imagematting;
@@ -180,6 +189,7 @@ namespace digitalmysql
 			contentid = "";
 			sourcefolder = "";
 			available = 0;
+			visible = 1;
 			speakspeed = 1.0;
 			seriousspeed = 0.8;
 			imagematting = "";
@@ -213,21 +223,24 @@ namespace digitalmysql
 			ansi_to_utf8(facemodelfile.c_str(), facemodelfile.length(), facemodelfile);
 		}
 	} humaninfo, *phumaninfo;
+	typedef std::vector<humaninfo> VEC_HUMANINFO;
 	bool addhumaninfo(humaninfo humanitem, bool update = false);
 	bool gethumaninfo(std::string humanid, humaninfo& humanitem);//仅使用公共信息,不限制所属用户
 	bool isexisthuman_humanid(std::string humanid);//[复用的前提是数字人可用],不限制所属用户
 	bool isavailable_humanid(std::string humanid); //[复用的前提是数字人可用],不限制所属用户
+	bool isvisible_humanid(std::string humanid, std::vector<int> vecbelongids);//限制所属用户,避免复用引起的问题
 	bool gethumaninfo_label(std::string humanid, std::vector<int> vecbelongids, std::string& labelstring);//限制所属用户,避免复用引起的问题
 	bool sethumaninfo_label(std::string humanid, std::vector<int> vecbelongids, std::string labelstring);//限制所属用户,避免复用引起的问题
+	bool gethumaninfo_deadlinetime(std::string humanid, std::vector<int> vecbelongids, std::string& deadlinetime);//限制所属用户,避免复用引起的问题
+	bool sethumaninfo_deadlinetime(std::string humanid, std::vector<int> vecbelongids, std::string deadlinetime);//限制所属用户,避免复用引起的问题
 	bool gethumaninfo_remaintime(std::string humanid, std::vector<int> vecbelongids, long long& remaintime);//限制所属用户,避免复用引起的问题
 	bool sethumaninfo_remaintime(std::string humanid, std::vector<int> vecbelongids, long long remaintime);//限制所属用户,避免复用引起的问题
 	bool gethumaninfo_remaintime(int id, long long& remaintime);
 	bool sethumaninfo_remaintime(int id, long long remaintime);
 	bool deletehuman_humanid(std::string humanid, bool deletefile, std::string& errmsg);//删除时复用和原数字人一起删除
 
-	typedef std::vector<humaninfo> VEC_HUMANINFO;
-	bool gethumanid_all(std::vector<int>& vechumanid);
-	bool gethumanlistinfo(std::string humanid, std::vector<int> vecbelongids, VEC_HUMANINFO& vechumaninfo);
+	bool gethumanlist_index(std::vector<int>& vechumanid);//所有数字人,不限制用户
+	bool gethumanlist_allinfo(std::string humanid, std::vector<int> vecbelongids, VEC_HUMANINFO& vechumaninfo);
 
 	//稿件任务
 	typedef struct _taskinfo
@@ -253,6 +266,7 @@ namespace digitalmysql
 		std::string humanid;
 		std::string humanname;
 		std::string ssmltext;
+		std::string actionlist;
 
 		std::string audio_path;
 		std::string audio_format;
@@ -304,6 +318,7 @@ namespace digitalmysql
 			humanid = "";
 			humanname = "";
 			ssmltext = "";
+			actionlist = "";
 
 			audio_path = "";
 			audio_format = "";
@@ -317,10 +332,10 @@ namespace digitalmysql
 			video_fps = 0.0;
 
 			foreground = "";
-			front_left = 0;
-			front_right = 0;
-			front_top = 100;
-			front_bottom = 0;
+			front_left = 0.0;
+			front_right = 0.0;
+			front_top = 1.0;
+			front_bottom = 1.0;
 
 			background = "";
 			backaudio = "";
@@ -345,6 +360,7 @@ namespace digitalmysql
 			ansi_to_utf8(humanid.c_str(), humanid.length(), humanid);
 			ansi_to_utf8(humanname.c_str(), humanname.length(), humanname);
 			ansi_to_utf8(ssmltext.c_str(), ssmltext.length(), ssmltext);
+			ansi_to_utf8(actionlist.c_str(), actionlist.length(), actionlist);
 
 			ansi_to_utf8(audio_path.c_str(), audio_path.length(), audio_path);
 			ansi_to_utf8(audio_format.c_str(), audio_format.length(), audio_format);
@@ -359,8 +375,10 @@ namespace digitalmysql
 		}
 
 	} taskinfo, * ptaskinfo;
+	typedef std::vector<taskinfo> VEC_TASKINFO;
 	bool addtaskinfo(int& taskid, taskinfo taskitem, bool update = false);
 	bool gettaskinfo(int taskid, taskinfo& taskitem);
+	bool gettaskinfo_group(std::string groupid, VEC_TASKINFO& vectaskgroup);
 	bool clearscannedtime_id(int taskid);
 	bool setscannedtime_nextrun(std::string scannedtime);
 	bool gettaskinfo_nextrun(std::string scannedtime, taskinfo& taskitem);
@@ -373,10 +391,9 @@ namespace digitalmysql
 	bool isexisttask_taskid(int taskid);
 	int  gettasknextversion(std::string groupid);
 
-	typedef std::vector<taskinfo> VEC_TASKINFO;
-	bool gettaskhistoryinfo(VEC_FILTERINFO& vecfilterinfo, std::string order_key, int order_way, int pagesize, int pagenum, int& total, VEC_TASKINFO& vectaskhistory, std::vector<int> vecbelongids);
-	bool gettaskgroupinfo(std::string groupid, VEC_TASKINFO& vectaskgroup);
-	bool gettasklistinfo(VEC_FILTERINFO& vecfilterinfo, int pagesize, int pagenum, int& total, VEC_TASKINFO& vectasklist);
+	bool gettasktotal_filter(VEC_FILTERINFO& vecfilterinfo, int& total);
+	bool gettaskhistory_filter(VEC_FILTERINFO& vecfilterinfo, std::string order_key, int order_way, int pagesize, int pagenum, VEC_TASKINFO& vectaskhistory);
+	bool gettasklist_filter(VEC_FILTERINFO& vecfilterinfo, int pagesize, int pagenum, int& total, VEC_TASKINFO& vectasklist);
 	bool deletetask_taskid(int taskid, bool deletefile, std::string& errmsg);
 
 	//背景资源
@@ -436,8 +453,9 @@ namespace digitalmysql
 
 		std::string	humanid;
 		std::string actionname;
-		std::string actionkeyframe;
 		std::string actionvideo;
+		std::string actionavi;
+		std::string actionkeyframe;
 		int			actionduration;
 		int			videowidth;
 		int			videoheight;
@@ -448,8 +466,9 @@ namespace digitalmysql
 
 			humanid = "";
 			actionname = "";
-			actionkeyframe = "";
 			actionvideo = "";
+			actionavi = "";
+			actionkeyframe = "";
 			actionduration = 0;
 			videowidth = 0;
 			videoheight = 0;
@@ -459,13 +478,17 @@ namespace digitalmysql
 		{
 			ansi_to_utf8(humanid.c_str(), humanid.length(), humanid);
 			ansi_to_utf8(actionname.c_str(), actionname.length(), actionname);
-			ansi_to_utf8(actionkeyframe.c_str(), actionkeyframe.length(), actionkeyframe);
 			ansi_to_utf8(actionvideo.c_str(), actionvideo.length(), actionvideo);
+			ansi_to_utf8(actionavi.c_str(), actionavi.length(), actionavi);
+			ansi_to_utf8(actionkeyframe.c_str(), actionkeyframe.length(), actionkeyframe);
 		}
 
 	} humanactioninfo, *phumanactioninfo;
 	typedef std::vector<humanactioninfo> VEC_HUMANACTIONINFO;
-	bool addhumanaction(humanactioninfo humanactionitem);
+	bool addhumanaction(humanactioninfo humanactionitem, bool update = false);
+	bool gethumanaction(std::string humanid, int actionid, humanactioninfo& humanactionitem);
+	bool isexisthumanaction_id(int actionid);
+
 	bool getactionlist(std::string humanid, VEC_HUMANACTIONINFO& vechumanaction);
 
 	//原始视频
